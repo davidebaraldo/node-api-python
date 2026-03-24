@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prebuild:
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+    name: prebuild / ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: npm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - run: pip install pybind11 numpy
+      - run: npm install
+
+      - name: Build prebuilds
+        run: npx prebuildify --napi --strip
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: prebuilds-${{ matrix.os }}
+          path: prebuilds/
+
+  release:
+    needs: prebuild
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: prebuilds/
+          pattern: prebuilds-*
+          merge-multiple: true
+
+      - run: npm install
+      - run: npm run build:ts
+
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          CURRENT_TAG="${GITHUB_REF_NAME}"
+
+          if [ -z "$PREVIOUS_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="${PREVIOUS_TAG}..HEAD"
+          fi
+
+          # Collect commits
+          FEATURES=""
+          BUGFIXES=""
+          OTHER=""
+
+          while IFS= read -r line; do
+            # Skip empty lines
+            [ -z "$line" ] && continue
+
+            # Extract the short message (strip leading whitespace)
+            msg="$(echo "$line" | sed 's/^ *//')"
+
+            # Categorize by prefix
+            lower_msg="$(echo "$msg" | tr '[:upper:]' '[:lower:]')"
+            case "$lower_msg" in
+              add:*|add\ *|feat:*|feat\ *|feat\(*|add\(*)
+                FEATURES="${FEATURES}- ${msg}"$'\n'
+                ;;
+              fix:*|fix\ *|fix\(*)
+                BUGFIXES="${BUGFIXES}- ${msg}"$'\n'
+                ;;
+              *)
+                OTHER="${OTHER}- ${msg}"$'\n'
+                ;;
+            esac
+          done <<< "$(git log --pretty=format:'%s' $RANGE)"
+
+          # Build changelog body
+          CHANGELOG="## What's Changed"$'\n'
+
+          if [ -n "$FEATURES" ]; then
+            CHANGELOG="${CHANGELOG}"$'\n'"### Features"$'\n'"${FEATURES}"
+          fi
+
+          if [ -n "$BUGFIXES" ]; then
+            CHANGELOG="${CHANGELOG}"$'\n'"### Bug Fixes"$'\n'"${BUGFIXES}"
+          fi
+
+          if [ -n "$OTHER" ]; then
+            CHANGELOG="${CHANGELOG}"$'\n'"### Other"$'\n'"${OTHER}"
+          fi
+
+          # Write to file for the release step
+          echo "$CHANGELOG" > "$RUNNER_TEMP/changelog.md"
+          echo "changelog_file=$RUNNER_TEMP/changelog.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: ${{ steps.changelog.outputs.changelog_file }}
+          files: prebuilds/**/*
+          fail_on_unmatched_files: false
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+build/
+dist/
+prebuilds/
+*.node
+
+# TypeScript
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+htmlcov/
+.pytest_cache/
+
+# Environment
+.env
+.env.local

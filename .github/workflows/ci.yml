@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: npm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - run: pip install ruff
+      - run: npm ci
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+      - name: Python lint
+        run: ruff check src/python/
+
+  test-python:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    runs-on: ${{ matrix.os }}
+    name: pytest / ${{ matrix.os }} / Python ${{ matrix.python }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Run Python tests
+        run: pytest test/python/ -v
+
+  build-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [22, 24, 25]
+        python: ["3.12", "3.13"]
+
+    runs-on: ${{ matrix.os }}
+    name: build / ${{ matrix.os }} / Node ${{ matrix.node }} / Python ${{ matrix.python }}
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install pybind11 numpy
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Build native addon
+        run: npm run build:native
+
+      - name: Run JS tests
+        if: success()
+        run: npm run test:js
+
+  smoke-test:
+    needs: [lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+    name: smoke / ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: npm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - run: npm ci
+      - name: Run doctor
+        run: node scripts/doctor.js || true

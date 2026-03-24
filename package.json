@@ -1,0 +1,74 @@
+{
+  "name": "node-api-python",
+  "version": "0.4.0",
+  "description": "High-performance Node.js ↔ Python bridge via embedded CPython",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "node-api-python": "./scripts/cli.js"
+  },
+  "files": [
+    "dist/",
+    "prebuilds/",
+    "src/cpp/",
+    "scripts/",
+    "CMakeLists.txt",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js",
+    "build": "cmake-js compile && npm run build:ts",
+    "build:native": "cmake-js compile",
+    "build:debug": "cmake-js compile --debug",
+    "build:ts": "tsc",
+    "rebuild": "cmake-js rebuild",
+    "test": "npm run test:js && npm run test:python",
+    "test:js": "vitest run",
+    "test:python": "pytest test/python/",
+    "lint": "tsc --noEmit && ruff check src/python/",
+    "lint:fix": "ruff check src/python/ --fix",
+    "doctor": "node scripts/doctor.js",
+    "find-python": "node scripts/find-python.js",
+    "generate-types": "node scripts/generate-types.js",
+    "prepublishOnly": "npm run build:ts"
+  },
+  "keywords": [
+    "python",
+    "bridge",
+    "cpython",
+    "native",
+    "addon",
+    "napi",
+    "pybind11",
+    "numpy",
+    "interop",
+    "ffi",
+    "typescript",
+    "type-generation",
+    "zero-copy"
+  ],
+  "author": "Davide Baraldo",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidebaraldo/node-api-python.git"
+  },
+  "bugs": {
+    "url": "https://github.com/davidebaraldo/node-api-python/issues"
+  },
+  "homepage": "https://github.com/davidebaraldo/node-api-python#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "node-addon-api": "^8.0.0",
+    "prebuildify": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.15",
+    "cmake-js": "^7.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

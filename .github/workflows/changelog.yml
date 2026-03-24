@@ -1,0 +1,44 @@
+name: Update CHANGELOG
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Generate CHANGELOG.md from all releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "# Changelog" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          # Fetch all releases ordered by creation date (newest first)
+          gh api repos/${{ github.repository }}/releases \
+            --paginate \
+            --jq 'sort_by(.created_at) | reverse | .[] | select(.draft == false) | "## [\(.tag_name)] - \(.published_at | split("T")[0])\n\n\(.body)\n"' \
+            >> CHANGELOG.md
+
+      - name: Commit CHANGELOG.md
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          # Only commit if there are changes
+          if git diff --cached --quiet; then
+            echo "No changes to CHANGELOG.md"
+          else
+            git commit -m "docs: update CHANGELOG.md for ${{ github.event.release.tag_name }}"
+            git push
+          fi
