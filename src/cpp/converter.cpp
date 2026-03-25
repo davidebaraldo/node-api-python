@@ -1,4 +1,5 @@
 #include "converter.h"
+#include <pybind11/eval.h>
 #include <sstream>
 #include <cmath>
 #include <cstdint>

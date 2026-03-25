@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Current version: v0.4.0** — Phases 1-4 complete. Bidirectional bridge is live.
+> **Current version: v0.6.0** — Phases 1-6 complete. Prebuilt binaries ship out of the box.
 
 > This is a living document. Priorities may shift based on community feedback.
 > Want to influence the roadmap? [Open a discussion](https://github.com/davidebaraldo/node-api-python/discussions).
@@ -109,15 +109,15 @@ for await (const row of df.iterrows()) { /* ... */ }
 
 ---
 
-## Phase 5 — TypeScript Type Generation `v0.5.0`
+## Phase 5 — TypeScript Type Generation `v0.5.0` (Complete)
 
 Automatically generate `.d.ts` type definitions from Python type hints.
 
-- [ ] CLI: `npx node-api-python generate-types ./module.py`
-- [ ] Extracts signatures from `def`, `class`, `@dataclass`, `TypedDict`
-- [ ] Maps Python generics (`list[int]`, `Optional[X]`, `Union[A, B]`) to TypeScript
-- [ ] Docstrings become JSDoc comments
-- [ ] Watch mode for development
+- [x] CLI: `npx node-api-python generate-types ./module.py`
+- [x] Extracts signatures from `def`, `class`, `@dataclass`, `TypedDict`
+- [x] Maps Python generics (`list[int]`, `Optional[X]`, `Union[A, B]`) to TypeScript
+- [x] Docstrings become JSDoc comments
+- [x] Watch mode for development
 
 ```python
 # Python
@@ -133,17 +133,17 @@ export function compute(x: number, y: number): Record<string, number>
 
 ---
 
-## Phase 6 — Prebuilt Binaries & Distribution `v1.0.0`
+## Phase 6 — Prebuilt Binaries & Distribution `v0.6.0` (Complete)
 
 Zero-friction install: `npm install node-api-python` just works, no compiler needed.
 
-- [ ] Prebuilt binaries via `prebuildify` for:
+- [x] Prebuilt binaries via `prebuildify` for:
   - Windows x64/arm64
   - macOS x64/arm64 (Apple Silicon)
   - Linux x64/arm64 (glibc + musl)
-- [ ] Fallback to source build if no prebuild matches
-- [ ] Comprehensive Python detection with clear error messages
-- [ ] Stable API — semver guarantees from v1.0.0
+- [x] Fallback to source build if no prebuild matches
+- [x] Comprehensive Python detection with clear error messages
+- [x] Stable API — semver guarantees from v1.0.0
 
 ---
 

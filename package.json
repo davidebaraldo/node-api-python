@@ -1,23 +1,26 @@
 {
   "name": "node-api-python",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "description": "High-performance Node.js ↔ Python bridge via embedded CPython",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "node-api-python": "./scripts/cli.js"
   },
+  "os": ["darwin", "linux", "win32"],
+  "cpu": ["x64", "arm64"],
   "files": [
     "dist/",
     "prebuilds/",
     "src/cpp/",
+    "src/python/typegen/",
     "scripts/",
     "CMakeLists.txt",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "postinstall": "node scripts/postinstall.js",
+    "install": "node scripts/postinstall.js",
     "build": "cmake-js compile && npm run build:ts",
     "build:native": "cmake-js compile",
     "build:debug": "cmake-js compile --debug",
@@ -31,6 +34,7 @@
     "doctor": "node scripts/doctor.js",
     "find-python": "node scripts/find-python.js",
     "generate-types": "node scripts/generate-types.js",
+    "prebuild": "node scripts/prebuild.js",
     "prepublishOnly": "npm run build:ts"
   },
   "keywords": [

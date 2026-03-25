@@ -303,3 +303,318 @@ class TestEmitter:
         # Verify docstrings are present
         assert ast.get_docstring(top_level[0]) == "Say hello."
         assert ast.get_docstring(top_level[2]) == "A simple counter."
+
+
+# ---------------------------------------------------------------------------
+# Real extractor / emitter tests
+# ---------------------------------------------------------------------------
+
+from typegen.extractor import extract_module
+from typegen.emitter import emit_dts
+
+
+class TestExtractorReal:
+    """Tests using the real extractor module."""
+
+    def test_extract_simple_function(self):
+        source = '''
+def add(x: int, y: int) -> int:
+    """Add two numbers."""
+    return x + y
+'''
+        module = extract_module(source, "test")
+        assert len(module.functions) == 1
+        func = module.functions[0]
+        assert func.name == "add"
+        assert len(func.params) == 2
+        assert func.params[0].name == "x"
+        assert func.params[0].type_hint == "int"
+        assert func.params[1].name == "y"
+        assert func.params[1].type_hint == "int"
+        assert func.return_type == "int"
+        assert func.docstring == "Add two numbers."
+
+    def test_extract_function_no_hints(self):
+        source = "def foo(x, y): pass\n"
+        module = extract_module(source, "test")
+        func = module.functions[0]
+        assert func.params[0].type_hint is None
+        assert func.return_type is None
+
+    def test_extract_function_with_defaults(self):
+        source = 'def greet(name: str, greeting: str = "Hello") -> str: ...\n'
+        module = extract_module(source, "test")
+        func = module.functions[0]
+        assert func.params[1].default == "'Hello'"
+
+    def test_extract_skips_private(self):
+        source = '''
+def public_func(): pass
+def _private_func(): pass
+class PublicClass: pass
+class _PrivateClass: pass
+'''
+        module = extract_module(source, "test")
+        assert len(module.functions) == 1
+        assert module.functions[0].name == "public_func"
+        assert len(module.classes) == 1
+        assert module.classes[0].name == "PublicClass"
+
+    def test_extract_class_methods(self):
+        source = '''
+class Calculator:
+    """A calculator."""
+    def add(self, a: int, b: int) -> int:
+        return a + b
+    def multiply(self, a: float, b: float) -> float:
+        return a * b
+'''
+        module = extract_module(source, "test")
+        cls = module.classes[0]
+        assert cls.name == "Calculator"
+        assert cls.docstring == "A calculator."
+        assert len(cls.methods) == 2
+        # self should be stripped
+        assert cls.methods[0].params[0].name == "a"
+        assert cls.methods[0].is_method is True
+
+    def test_extract_dataclass(self):
+        source = '''
+from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: float
+    y: float
+    label: str = "origin"
+'''
+        module = extract_module(source, "test")
+        cls = module.classes[0]
+        assert cls.name == "Point"
+        assert cls.is_dataclass is True
+        assert len(cls.fields) == 3
+        assert cls.fields[0].name == "x"
+        assert cls.fields[0].type_hint == "float"
+        assert cls.fields[2].default == "'origin'"
+
+    def test_extract_typed_dict(self):
+        source = '''
+from typing import TypedDict
+
+class Config(TypedDict):
+    host: str
+    port: int
+'''
+        module = extract_module(source, "test")
+        cls = module.classes[0]
+        assert cls.name == "Config"
+        assert cls.is_typed_dict is True
+        assert len(cls.fields) == 2
+        assert cls.fields[0].name == "host"
+        assert cls.fields[0].type_hint == "str"
+
+    def test_extract_static_and_classmethod(self):
+        source = '''
+class Util:
+    @staticmethod
+    def helper(x: int) -> int:
+        return x
+
+    @classmethod
+    def create(cls, name: str) -> None:
+        pass
+'''
+        module = extract_module(source, "test")
+        cls = module.classes[0]
+        assert cls.methods[0].is_static is True
+        assert cls.methods[0].name == "helper"
+        assert cls.methods[1].is_classmethod is True
+        assert cls.methods[1].name == "create"
+        # cls param should be stripped
+        assert cls.methods[1].params[0].name == "name"
+
+    def test_extract_module_docstring(self):
+        source = '"""My module docstring."""\ndef foo(): pass\n'
+        module = extract_module(source, "test")
+        assert module.docstring == "My module docstring."
+
+
+class TestEmitterReal:
+    """Tests using the real emitter module."""
+
+    def test_emit_simple_function(self):
+        module = extract_module("def add(x: int, y: int) -> int: ...", "test")
+        dts = emit_dts(module)
+        assert "export function add(x: number, y: number): Promise<number>" in dts
+        assert "export function addSync(x: number, y: number): number" in dts
+
+    def test_emit_no_type_hints(self):
+        module = extract_module("def foo(x, y): pass", "test")
+        dts = emit_dts(module)
+        assert "export function foo(x: any, y: any): Promise<any>" in dts
+        assert "export function fooSync(x: any, y: any): any" in dts
+
+    def test_emit_header(self):
+        module = extract_module("def f(): pass", "mymod")
+        dts = emit_dts(module)
+        assert "Auto-generated by node-api-python" in dts
+        assert "Source: mymod.py" in dts
+        assert "Do not edit manually" in dts
+
+    def test_emit_jsdoc(self):
+        source = '''
+def greet(name: str) -> str:
+    """Say hello to someone."""
+    return f"Hello, {name}"
+'''
+        module = extract_module(source, "test")
+        dts = emit_dts(module)
+        assert "/** Say hello to someone. */" in dts
+
+    def test_emit_list_type(self):
+        module = extract_module("def f(x: list[int]) -> list[str]: ...", "test")
+        dts = emit_dts(module)
+        assert "x: number[]" in dts
+        assert "Promise<string[]>" in dts
+
+    def test_emit_dict_type(self):
+        module = extract_module("def f(x: dict[str, int]) -> dict[str, float]: ...", "test")
+        dts = emit_dts(module)
+        assert "x: Record<string, number>" in dts
+        assert "Record<string, number>" in dts
+
+    def test_emit_optional_type(self):
+        module = extract_module("def f(x: int | None) -> str | None: ...", "test")
+        dts = emit_dts(module)
+        assert "x: number | null" in dts
+        assert "string | null" in dts
+
+    def test_emit_tuple_type(self):
+        module = extract_module("def f(x: tuple[int, str]) -> tuple[float, bool]: ...", "test")
+        dts = emit_dts(module)
+        assert "x: [number, string]" in dts
+        assert "[number, boolean]" in dts
+
+    def test_emit_dataclass_interface(self):
+        source = '''
+from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: float
+    y: float
+'''
+        module = extract_module(source, "test")
+        dts = emit_dts(module)
+        assert "export interface Point {" in dts
+        assert "x: number" in dts
+        assert "y: number" in dts
+
+    def test_emit_typed_dict_interface(self):
+        source = '''
+from typing import TypedDict
+
+class Config(TypedDict):
+    host: str
+    port: int
+'''
+        module = extract_module(source, "test")
+        dts = emit_dts(module)
+        assert "export interface Config {" in dts
+        assert "host: string" in dts
+        assert "port: number" in dts
+
+    def test_emit_class_with_methods(self):
+        source = '''
+class Calc:
+    def add(self, a: int, b: int) -> int:
+        return a + b
+'''
+        module = extract_module(source, "test")
+        dts = emit_dts(module)
+        assert "export interface Calc {" in dts
+        assert "add(a: number, b: number): Promise<number>" in dts
+        assert "addSync(a: number, b: number): number" in dts
+
+    def test_emit_optional_param(self):
+        source = 'def greet(name: str, greeting: str = "Hello") -> str: ...\n'
+        module = extract_module(source, "test")
+        dts = emit_dts(module)
+        assert "greeting?: string" in dts
+
+    def test_emit_callable_type(self):
+        source = "def f(cb: Callable[[int, str], bool]) -> None: ...\n"
+        module = extract_module(source, "test")
+        dts = emit_dts(module)
+        assert "(arg0: number, arg1: string) => boolean" in dts
+
+    def test_emit_set_type(self):
+        module = extract_module("def f(x: set[int]) -> set[str]: ...", "test")
+        dts = emit_dts(module)
+        assert "Set<number>" in dts
+        assert "Set<string>" in dts
+
+    def test_emit_bytes_type(self):
+        module = extract_module("def f(x: bytes) -> bytearray: ...", "test")
+        dts = emit_dts(module)
+        assert "x: Buffer" in dts
+        assert "Promise<Buffer>" in dts
+
+
+class TestEndToEnd:
+    """End-to-end tests: Python source -> .d.ts output."""
+
+    def test_full_module(self):
+        source = '''
+"""My module."""
+from dataclasses import dataclass
+from typing import TypedDict
+
+@dataclass
+class Point:
+    x: float
+    y: float
+
+class Config(TypedDict):
+    host: str
+    port: int
+
+def distance(a: Point, b: Point) -> float:
+    """Calculate distance between two points."""
+    ...
+
+def greet(name: str, greeting: str = "Hello") -> str:
+    ...
+'''
+        module = extract_module(source, "geometry")
+        dts = emit_dts(module)
+        assert "export interface Point" in dts
+        assert "x: number" in dts
+        assert "export interface Config" in dts
+        assert "host: string" in dts
+        assert "export function distance" in dts
+        assert "export function greet" in dts
+        assert "Source: geometry.py" in dts
+        assert "My module." in dts
+
+    def test_complex_types(self):
+        source = '''
+from typing import Optional, Union
+
+def process(
+    items: list[int],
+    lookup: dict[str, float],
+    pair: tuple[str, int],
+    tags: set[str],
+    callback: Callable[[int], str],
+    maybe: Optional[int] = None,
+) -> Union[str, int]:
+    ...
+'''
+        module = extract_module(source, "complex")
+        dts = emit_dts(module)
+        assert "number[]" in dts
+        assert "Record<string, number>" in dts
+        assert "[string, number]" in dts
+        assert "Set<string>" in dts
+        assert "string | number" in dts
