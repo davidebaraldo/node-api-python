@@ -69,7 +69,7 @@ def get_empty_set() -> set:
 
 
 def get_unicode_str() -> str:
-    return "hello \u4e16\u754c \ud83c\udf0d"
+    return "hello \u4e16\u754c \U0001f30d"
 
 
 def get_datetime() -> datetime.datetime:

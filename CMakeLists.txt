@@ -56,6 +56,22 @@ target_link_libraries(${PROJECT_NAME}
     pybind11::embed
 )
 
+# Ensure all libpython symbols are available to extension modules
+# loaded at runtime (e.g., math.cpython-*.so needs PyFloat_Type)
+if(UNIX AND NOT APPLE)
+    # Linux: force all symbols from libpython to be exported
+    target_link_options(${PROJECT_NAME} PRIVATE
+        "LINKER:--no-as-needed"
+        "LINKER:--export-dynamic"
+    )
+elseif(APPLE)
+    # macOS: allow flat namespace lookups for Python extension modules
+    target_link_options(${PROJECT_NAME} PRIVATE
+        "LINKER:-undefined,dynamic_lookup"
+        "LINKER:-flat_namespace"
+    )
+endif()
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     NAPI_VERSION=8
     NODE_ADDON_API_DISABLE_DEPRECATED

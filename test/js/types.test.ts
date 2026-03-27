@@ -7,11 +7,12 @@ import { describe, it, expect, beforeAll } from 'vitest'
  * JS -> Python -> JS, preserving type and value.
  */
 
+import * as python from '../../lib/index'
+
 let mod: any
 
 beforeAll(() => {
-  const python = require('../../lib/index')
-  mod = python.import('./test/fixtures/type_test')
+  mod = python.importModule('./test/fixtures/type_test')
 })
 
 describe('type marshaling — JS to Python and back', () => {
@@ -312,7 +313,7 @@ describe('type marshaling — JS to Python and back', () => {
     beforeAll(() => {
       try {
         const python = require('../../lib/index')
-        np = python.import('numpy')
+        np = python.importModule('numpy')
         hasNumpy = true
       } catch {
         hasNumpy = false

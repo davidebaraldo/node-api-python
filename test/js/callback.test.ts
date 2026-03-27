@@ -7,11 +7,12 @@ import { describe, it, expect, beforeAll } from 'vitest'
  * including single calls, multiple calls, progress patterns, and event emitters.
  */
 
+import * as python from '../../lib/index'
+
 let mod: any
 
 beforeAll(() => {
-  const python = require('../../lib/index')
-  mod = python.import('./test/fixtures/callbacks')
+  mod = python.importModule('./test/fixtures/callbacks')
 })
 
 describe('callbacks — JS functions called from Python', () => {

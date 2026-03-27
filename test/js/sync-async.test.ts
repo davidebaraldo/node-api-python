@@ -10,11 +10,12 @@ import { describe, it, expect, beforeAll } from 'vitest'
  * - Multiple concurrent async calls execute correctly
  */
 
+import * as python from '../../lib/index'
+
 let mod: any
 
 beforeAll(() => {
-  const python = require('../../lib/index')
-  mod = python.import('./test/fixtures/compute')
+  mod = python.importModule('./test/fixtures/compute')
 })
 
 describe('sync and async calling', () => {

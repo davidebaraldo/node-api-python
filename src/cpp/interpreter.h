@@ -36,6 +36,7 @@ private:
 
     bool initialized_ = false;
     mutable std::mutex mutex_;
+    PyThreadState* main_thread_state_ = nullptr;
 };
 
 } // namespace node_api_python

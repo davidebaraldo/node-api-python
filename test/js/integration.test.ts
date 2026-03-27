@@ -8,28 +8,24 @@ import * as path from 'path'
  * importing, calling, type conversion, and concurrency.
  */
 
-let python: any
-
-beforeAll(() => {
-  python = require('../../lib/index')
-})
+import * as python from '../../lib/index'
 
 describe('integration — end-to-end workflows', () => {
   describe('full workflow: import, call, get result', () => {
     it('should import a module, call a sync function, and get the correct result', () => {
-      const mod = python.import('./test/fixtures/type_test')
+      const mod = python.importModule('./test/fixtures/type_test')
       const result = mod.add_intsSync(10, 32)
       expect(result).toBe(42)
     })
 
     it('should import a module, call an async function, and get the correct result', async () => {
-      const mod = python.import('./test/fixtures/type_test')
+      const mod = python.importModule('./test/fixtures/type_test')
       const result = await mod.add_ints(10, 32)
       expect(result).toBe(42)
     })
 
     it('should chain multiple calls on the same module', () => {
-      const mod = python.import('./test/fixtures/type_test')
+      const mod = python.importModule('./test/fixtures/type_test')
       const sum = mod.add_intsSync(1, 2)
       const doubled = mod.add_intsSync(sum, sum)
       const str = mod.concat_stringsSync('result: ', String(doubled))
@@ -39,8 +35,8 @@ describe('integration — end-to-end workflows', () => {
 
   describe('multiple modules loaded simultaneously', () => {
     it('should use compute and type_test modules together', () => {
-      const compute = python.import('./test/fixtures/compute')
-      const types = python.import('./test/fixtures/type_test')
+      const compute = python.importModule('./test/fixtures/compute')
+      const types = python.importModule('./test/fixtures/type_test')
 
       const sum = compute.addSync(10, 20)
       const identity = types.identitySync(sum)
@@ -49,8 +45,8 @@ describe('integration — end-to-end workflows', () => {
     })
 
     it('should use stdlib and fixture modules together', () => {
-      const json = python.import('json')
-      const types = python.import('./test/fixtures/type_test')
+      const json = python.importModule('json')
+      const types = python.importModule('./test/fixtures/type_test')
 
       const dict = types.get_dictSync()
       const jsonStr = json.dumpsSync(dict)
@@ -61,9 +57,9 @@ describe('integration — end-to-end workflows', () => {
     })
 
     it('should load three fixture modules at once', () => {
-      const compute = python.import('./test/fixtures/compute')
-      const types = python.import('./test/fixtures/type_test')
-      const callbacks = python.import('./test/fixtures/callbacks')
+      const compute = python.importModule('./test/fixtures/compute')
+      const types = python.importModule('./test/fixtures/type_test')
+      const callbacks = python.importModule('./test/fixtures/callbacks')
 
       expect(compute.addSync(1, 2)).toBe(3)
       expect(types.get_intSync()).toBe(42)
@@ -78,11 +74,11 @@ describe('integration — end-to-end workflows', () => {
 
   describe('module reloading', () => {
     it('should be able to reimport a module after first import', () => {
-      const mod1 = python.import('./test/fixtures/compute')
+      const mod1 = python.importModule('./test/fixtures/compute')
       const r1 = mod1.addSync(1, 1)
 
       // Re-import the same module
-      const mod2 = python.import('./test/fixtures/compute')
+      const mod2 = python.importModule('./test/fixtures/compute')
       const r2 = mod2.addSync(1, 1)
 
       expect(r1).toBe(r2)
@@ -92,7 +88,7 @@ describe('integration — end-to-end workflows', () => {
 
   describe('memory stability on repeated calls', () => {
     it('should not leak memory on many repeated sync calls', () => {
-      const mod = python.import('./test/fixtures/compute')
+      const mod = python.importModule('./test/fixtures/compute')
 
       // Take a rough baseline
       const before = process.memoryUsage().heapUsed
@@ -114,7 +110,7 @@ describe('integration — end-to-end workflows', () => {
     })
 
     it('should not leak memory on many repeated async calls', async () => {
-      const mod = python.import('./test/fixtures/compute')
+      const mod = python.importModule('./test/fixtures/compute')
 
       const before = process.memoryUsage().heapUsed
 
@@ -137,7 +133,7 @@ describe('integration — end-to-end workflows', () => {
   describe('Python stdout/stderr capture', () => {
     it('should not crash when Python prints to stdout', () => {
       // Python's print() shouldn't cause errors in Node
-      const os = python.import('os')
+      const os = python.importModule('os')
       // Just calling a function that exists and doesn't print — the point is
       // that the bridge handles Python's I/O streams without crashing
       const cwd = os.getcwdSync()
@@ -147,8 +143,8 @@ describe('integration — end-to-end workflows', () => {
 
   describe('concurrent async calls from different modules', () => {
     it('should handle concurrent calls across modules', async () => {
-      const compute = python.import('./test/fixtures/compute')
-      const types = python.import('./test/fixtures/type_test')
+      const compute = python.importModule('./test/fixtures/compute')
+      const types = python.importModule('./test/fixtures/type_test')
 
       const [sum, ints, str, merged] = await Promise.all([
         compute.add(100, 200),
@@ -164,8 +160,8 @@ describe('integration — end-to-end workflows', () => {
     })
 
     it('should handle concurrent slow + fast calls', async () => {
-      const compute = python.import('./test/fixtures/compute')
-      const types = python.import('./test/fixtures/type_test')
+      const compute = python.importModule('./test/fixtures/compute')
+      const types = python.importModule('./test/fixtures/type_test')
 
       // Start a slow call and a bunch of fast ones
       const slow = compute.slow_add(1, 2)

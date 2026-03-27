@@ -6,6 +6,9 @@
 #include <unordered_map>
 #include <vector>
 #include <functional>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
 
 namespace py = pybind11;
 
@@ -32,6 +35,7 @@ public:
                  std::vector<py::object> args,
                  Napi::Promise::Deferred deferred);
 
+    ~PyCallWorker() override;
     void Execute() override;
     void OnOK() override;
     void OnError(const Napi::Error& error) override;

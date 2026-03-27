@@ -15,57 +15,6 @@
 namespace py = pybind11;
 using namespace node_api_python;
 
-// Helper: create a function wrapper (sync or async) for a Python callable
-static Napi::Value MakeSyncCaller(Napi::Env env, py::object py_func) {
-    // Store persistent reference to the Python function
-    auto func_ptr = std::make_shared<py::object>(std::move(py_func));
-
-    return Napi::Function::New(env, [func_ptr](const Napi::CallbackInfo& info) -> Napi::Value {
-        Napi::Env env = info.Env();
-        py::gil_scoped_acquire gil;
-
-        try {
-            py::tuple args(info.Length());
-            for (size_t i = 0; i < info.Length(); ++i) {
-                args[i] = JsToPy(info[i]);
-            }
-
-            py::object result = (*func_ptr)(*args);
-            return PyToJs(env, result);
-        } catch (const py::error_already_set& e) {
-            Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
-            return env.Undefined();
-        } catch (const std::exception& e) {
-            Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
-    });
-}
-
-static Napi::Value MakeAsyncCaller(Napi::Env env, py::object py_func) {
-    auto func_ptr = std::make_shared<py::object>(std::move(py_func));
-
-    return Napi::Function::New(env, [func_ptr](const Napi::CallbackInfo& info) -> Napi::Value {
-        Napi::Env env = info.Env();
-        auto deferred = Napi::Promise::Deferred::New(env);
-
-        std::vector<py::object> args;
-        args.reserve(info.Length());
-
-        {
-            py::gil_scoped_acquire gil;
-            for (size_t i = 0; i < info.Length(); ++i) {
-                args.push_back(JsToPy(info[i]));
-            }
-        }
-
-        auto worker = new PyCallWorker(env, *func_ptr, std::move(args), deferred);
-        worker->Queue();
-
-        return deferred.Promise();
-    });
-}
-
 // Build a JS proxy object for a Python module.
 // Property access returns Python attributes. Callable attributes get
 // both sync (nameSync) and async (name) wrappers.

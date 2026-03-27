@@ -1,45 +1,134 @@
 #include "callback.h"
 #include "converter.h"
 #include <stdexcept>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
 
 namespace node_api_python {
 
 // ─── JsCallbackWrapper ─────────────────────────────────────────────────────
 
+// Data passed from the worker thread to the main thread via TSFN
+struct CallbackBridge {
+    std::vector<py::object> py_args;
+    py::object result;
+    std::string error;
+    bool done = false;
+    std::mutex mtx;
+    std::condition_variable cv;
+};
+
 py::object JsCallbackWrapper::Create(Napi::Env env, Napi::Function js_func) {
-    // Store a persistent reference to the JS function
+    // Store a persistent reference to the JS function.
     auto ref = std::make_shared<Napi::FunctionReference>(
         Napi::Persistent(js_func));
     ref->SuppressDestruct();
 
-    // Create a Python function that calls through to JS.
-    // NOTE: This only works when called from the main thread (where the
-    // Node.js event loop runs). For cross-thread scenarios, use
-    // ThreadSafeFunction in a future phase.
-    auto raw_ptr = ref.get();
-    auto invoke = [raw_ptr](py::args args) -> py::object {
-        // We need to release the GIL before calling into JS
-        py::gil_scoped_release release;
+    // Capture the main thread ID so we can detect cross-thread calls
+    auto main_thread_id = std::this_thread::get_id();
 
-        Napi::Env env = raw_ptr->Env();
-        Napi::HandleScope scope(env);
+    // Create a ThreadSafeFunction for cross-thread callback invocation.
+    // The invoke callback runs on the main thread when called from a worker.
+    auto tsfn = Napi::ThreadSafeFunction::New(
+        env,
+        js_func,
+        "JsCallbackWrapper",
+        0,    // unlimited queue
+        1     // one thread (the invoke lambda captures the ref)
+    );
 
-        std::vector<napi_value> js_args;
-        js_args.reserve(args.size());
+    // prevent release-on-destroy so we control its lifetime via shared_ptr invoke captured ref
+    auto tsfn_ptr = std::make_shared<Napi::ThreadSafeFunction>(std::move(tsfn));
 
-        // Re-acquire GIL briefly to convert args
-        {
+    auto invoke = [ref, main_thread_id, tsfn_ptr](py::args args) -> py::object {
+        if (std::this_thread::get_id() == main_thread_id) {
+            // ── Main-thread fast path: call JS directly ──
+            py::gil_scoped_release release;
+
+            Napi::Env env = ref->Env();
+            Napi::HandleScope scope(env);
+
+            std::vector<napi_value> js_args;
+            js_args.reserve(args.size());
+
+            {
+                py::gil_scoped_acquire acquire;
+                for (size_t i = 0; i < args.size(); ++i) {
+                    js_args.push_back(PyToJs(env, args[i]));
+                }
+            }
+
+            Napi::Value result = ref->Call(js_args);
+
             py::gil_scoped_acquire acquire;
+            return JsToPy(result);
+        }
+
+        // ── Worker-thread path: marshal call to main thread via TSFN ──
+        auto bridge = std::make_shared<CallbackBridge>();
+        {
             for (size_t i = 0; i < args.size(); ++i) {
-                js_args.push_back(PyToJs(env, args[i]));
+                bridge->py_args.push_back(
+                    py::reinterpret_borrow<py::object>(args[i]));
             }
         }
 
-        Napi::Value result = raw_ptr->Call(js_args);
+        // Release GIL before blocking — the main thread may need it
+        // to convert args back to Python
+        py::gil_scoped_release release;
 
-        // Convert result back to Python
+        // Schedule callback on the main thread
+        auto ref_copy = ref;
+        auto bridge_copy = bridge;
+        napi_status status = tsfn_ptr->BlockingCall(
+            [ref_copy, bridge_copy](Napi::Env env, Napi::Function /*js_callback*/) {
+                Napi::HandleScope scope(env);
+
+                std::vector<napi_value> js_args;
+                {
+                    py::gil_scoped_acquire acquire;
+                    js_args.reserve(bridge_copy->py_args.size());
+                    for (auto& arg : bridge_copy->py_args) {
+                        js_args.push_back(PyToJs(env, arg));
+                    }
+                }
+
+                try {
+                    Napi::Value result = ref_copy->Call(js_args);
+                    {
+                        py::gil_scoped_acquire acquire;
+                        bridge_copy->result = JsToPy(result);
+                    }
+                } catch (const Napi::Error& e) {
+                    bridge_copy->error = e.Message();
+                } catch (const std::exception& e) {
+                    bridge_copy->error = e.what();
+                }
+
+                {
+                    std::lock_guard<std::mutex> lk(bridge_copy->mtx);
+                    bridge_copy->done = true;
+                }
+                bridge_copy->cv.notify_one();
+            });
+
+        if (status != napi_ok) {
+            py::gil_scoped_acquire acquire;
+            throw std::runtime_error("Failed to schedule callback on main thread");
+        }
+
+        // Block until the main thread has executed the callback
+        {
+            std::unique_lock<std::mutex> lk(bridge->mtx);
+            bridge->cv.wait(lk, [&] { return bridge->done; });
+        }
+
         py::gil_scoped_acquire acquire;
-        return JsToPy(result);
+        if (!bridge->error.empty()) {
+            throw std::runtime_error(bridge->error);
+        }
+        return bridge->result;
     };
 
     // Wrap the C++ lambda as a Python callable using pybind11
@@ -57,6 +146,14 @@ PyCallWorker::PyCallWorker(Napi::Env env,
       func_(std::move(func)),
       args_(std::move(args)),
       deferred_(deferred) {}
+
+PyCallWorker::~PyCallWorker() {
+    // Acquire GIL to safely destroy Python objects (func_, args_, result_)
+    py::gil_scoped_acquire gil;
+    func_ = py::none();
+    args_.clear();
+    result_ = py::none();
+}
 
 void PyCallWorker::Execute() {
     try {

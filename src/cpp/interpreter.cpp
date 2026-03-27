@@ -3,6 +3,10 @@
 #include <filesystem>
 #include <stdexcept>
 
+#if defined(__linux__)
+#include <dlfcn.h>
+#endif
+
 namespace fs = std::filesystem;
 
 namespace node_api_python {
@@ -22,6 +26,16 @@ void Interpreter::Initialize() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (initialized_) return;
 
+#if defined(__linux__)
+    // Node.js loads .node addons with RTLD_LOCAL, hiding libpython symbols
+    // from Python extension modules (e.g., math.so needs PyFloat_Type).
+    // Re-open libpython with RTLD_GLOBAL so its symbols are globally visible.
+    Dl_info dl_info;
+    if (dladdr(reinterpret_cast<void*>(&Py_Initialize), &dl_info) && dl_info.dli_fname) {
+        dlopen(dl_info.dli_fname, RTLD_NOW | RTLD_GLOBAL | RTLD_NOLOAD);
+    }
+#endif
+
     try {
         py::initialize_interpreter();
     } catch (const std::exception& e) {
@@ -34,18 +48,26 @@ void Interpreter::Initialize() {
 
     // Add current working directory to sys.path
     AddToSysPath(".");
+
+    // Release the GIL so worker threads (PyCallWorker) can acquire it.
+    // All subsequent Python access uses py::gil_scoped_acquire.
+    main_thread_state_ = PyEval_SaveThread();
 }
 
 void Interpreter::Finalize() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!initialized_) return;
-
-    try {
-        py::finalize_interpreter();
-    } catch (...) {
-        // Swallow errors during shutdown
-    }
     initialized_ = false;
+
+    // Restore the main thread state so pybind11 shared_ptr destructors
+    // can safely decrement Python refcounts during process exit.
+    if (main_thread_state_) {
+        PyEval_RestoreThread(main_thread_state_);
+        main_thread_state_ = nullptr;
+    }
+
+    // Skip py::finalize_interpreter() — it crashes with active pybind11 refs.
+    // The OS reclaims all resources on process exit.
 }
 
 bool Interpreter::IsInitialized() const {
@@ -111,8 +133,22 @@ py::module_ Interpreter::ImportModule(const std::string& name) {
 
     std::string module_name = name;
 
-    // Handle relative paths: "./foo/bar" -> add dir to sys.path, import "bar"
-    if (name.size() >= 2 && (name[0] == '.' && (name[1] == '/' || name[1] == '\\'))) {
+    // Detect if the name is a file path (relative or absolute)
+    bool is_path = false;
+
+    // Relative: starts with ./ or .
+    if (name.size() >= 2 && name[0] == '.' && (name[1] == '/' || name[1] == '\\')) {
+        is_path = true;
+    }
+    // Absolute path
+    if (!is_path) {
+        fs::path p(name);
+        if (p.is_absolute()) {
+            is_path = true;
+        }
+    }
+
+    if (is_path) {
         fs::path mod_path = fs::absolute(name);
 
         // If it points to a .py file, strip the extension

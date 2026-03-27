@@ -1,4 +1,3 @@
-import { PythonModuleProxy } from './module'
 import type { NativeAddon } from './module'
 import type { ImportOptions, PythonModule } from './types'
 
@@ -17,30 +16,41 @@ export type {
   PyTuple,
 } from './types'
 
+import * as path from 'path'
+
 interface FullAddon extends NativeAddon {
-  importModule(path: string): unknown
-  getVersion(): string
+  import(path: string): unknown
+  version(): string
   isInitialized(): boolean
   setSysPath?(paths: string[]): void
   setPythonPath?(pythonPath: string): void
 }
 
-let addon: FullAddon
+// Resolve project root (works from both lib/ and dist/)
+const projectRoot = path.resolve(__dirname, '..')
 
-try {
-  addon = require('../build/Release/node_api_python.node')
-} catch {
-  try {
-    addon = require('../prebuilds/' +
-      process.platform + '-' + process.arch +
-      '/node_api_python.node')
-  } catch {
-    throw new Error(
-      'Failed to load node-api-python native addon. ' +
-      'Run "npm run build" to compile, or run "npx node-api-python doctor" to diagnose.',
-    )
+function loadAddon(): FullAddon {
+  const addonPaths = [
+    path.join(projectRoot, 'build', 'Release', 'node_api_python.node'),
+    path.join(projectRoot, 'build', 'Debug', 'node_api_python.node'),
+    path.join(projectRoot, 'prebuilds', `${process.platform}-${process.arch}`, 'node_api_python.node'),
+  ]
+
+  for (const p of addonPaths) {
+    try {
+      return require(p)
+    } catch {
+      // try next
+    }
   }
+
+  throw new Error(
+    'Failed to load node-api-python native addon. ' +
+    'Run "npm run build" to compile, or run "npx node-api-python doctor" to diagnose.',
+  )
 }
+
+const addon: FullAddon = loadAddon()
 
 function importModule(modulePath: string, options?: ImportOptions): PythonModule {
   if (options?.pythonPath && addon.setPythonPath) {
@@ -53,7 +63,7 @@ function importModule(modulePath: string, options?: ImportOptions): PythonModule
 
   let nativeModule: unknown
   try {
-    nativeModule = addon.importModule(modulePath)
+    nativeModule = addon.import(modulePath)
   } catch (err) {
     if (err instanceof Error) {
       throw new Error(`Failed to import Python module "${modulePath}": ${err.message}`)
@@ -61,12 +71,14 @@ function importModule(modulePath: string, options?: ImportOptions): PythonModule
     throw err
   }
 
-  return PythonModuleProxy.create(nativeModule, addon)
+  // The native addon's BuildModuleProxy already creates a JS object with
+  // func() (async) and funcSync() (sync) for each callable attribute
+  return nativeModule as PythonModule
 }
 
 const version: string = (() => {
   try {
-    return addon.getVersion()
+    return addon.version()
   } catch {
     return 'unknown'
   }

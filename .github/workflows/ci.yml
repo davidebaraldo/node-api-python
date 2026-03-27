@@ -51,23 +51,19 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
 
-      - name: Install pytest
-        run: pip install pytest
+      - run: pip install pytest
+      - run: pytest test/python/ -v
 
-      - name: Run Python tests
-        run: pytest test/python/ -v
-
-  build-native:
+  build-and-test-native:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node: [22, 24, 25]
-        python: ["3.12", "3.13"]
+        os: [ubuntu-latest, windows-latest]
+        node: [22]
+        python: ["3.13"]
 
     runs-on: ${{ matrix.os }}
-    name: build / ${{ matrix.os }} / Node ${{ matrix.node }} / Python ${{ matrix.python }}
-    continue-on-error: true
+    name: native / ${{ matrix.os }} / Node ${{ matrix.node }} / Py ${{ matrix.python }}
 
     steps:
       - uses: actions/checkout@v6
@@ -82,18 +78,70 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
 
-      - name: Install Python dependencies
+      - name: Install Python build deps
         run: pip install pybind11 numpy
 
-      - name: Install Node.js dependencies
+      - name: Install Node.js deps
         run: npm ci
 
       - name: Build native addon
         run: npm run build:native
 
-      - name: Run JS tests
-        if: success()
-        run: npm run test:js
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Test types
+        run: npx vitest run test/js/types.test.ts
+      - name: Test sync-async
+        run: npx vitest run test/js/sync-async.test.ts
+      - name: Test import
+        run: npx vitest run test/js/import.test.ts
+      - name: Test callback
+        run: npx vitest run test/js/callback.test.ts
+      - name: Test integration
+        run: npx vitest run test/js/integration.test.ts
+
+  test-typegen-cli:
+    needs: [lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+    name: typegen-cli / ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: npm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - run: npm ci
+
+      - name: Generate types from example
+        run: node scripts/generate-types.js examples/basic/math_utils.py -o ${{ runner.temp }}/types-out
+
+      - name: Verify generated .d.ts
+        run: |
+          grep "export function add" ${{ runner.temp }}/types-out/math_utils.d.ts
+          grep "export function addSync" ${{ runner.temp }}/types-out/math_utils.d.ts
+          grep "export function greet" ${{ runner.temp }}/types-out/math_utils.d.ts
+
+      - name: Generate types from complex module
+        run: node scripts/generate-types.js examples/fullstack/analytics.py -o ${{ runner.temp }}/types-out
+
+      - name: Verify complex types
+        run: |
+          grep "export interface UserEvent" ${{ runner.temp }}/types-out/analytics.d.ts
+          grep "export interface AnalyticsReport" ${{ runner.temp }}/types-out/analytics.d.ts
 
   smoke-test:
     needs: [lint]

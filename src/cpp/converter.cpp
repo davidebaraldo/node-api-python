@@ -1,4 +1,5 @@
 #include "converter.h"
+#include "callback.h"
 #include <pybind11/eval.h>
 #include <sstream>
 #include <cmath>
@@ -29,28 +30,32 @@ Napi::Value PyToJs(Napi::Env env, py::handle obj) {
             if (val >= SAFE_INT_MIN && val <= SAFE_INT_MAX) {
                 return Napi::Number::New(env, static_cast<double>(val));
             }
-            // Large int -> BigInt
+            // Large int -> BigInt (fits in int64 but exceeds safe JS range)
             bool negative = val < 0;
             uint64_t abs_val = negative ? static_cast<uint64_t>(-val) : static_cast<uint64_t>(val);
-            return Napi::BigInt::New(env, negative ? -1 : 1,  1, &abs_val);
+            return Napi::BigInt::New(env, negative ? 1 : 0, 1, &abs_val);
         } catch (const py::cast_error&) {
-            // Overflows int64 — convert via string to BigInt
-            std::string s = py::str(obj).cast<std::string>();
-            // Remove leading +
-            if (!s.empty() && s[0] == '+') s = s.substr(1);
-            // Use N-API to create BigInt from string by converting through words
-            // For simplicity, pass as string via eval-like approach
-            // Actually, node-addon-api doesn't have BigInt from string directly.
-            // We'll use Python to get the sign and digits.
-            py::int_ pyint = obj.cast<py::int_>();
-            int overflow = 0;
-            long long test = PyLong_AsLongLongAndOverflow(pyint.ptr(), &overflow);
-            (void)test;
-            // For truly huge ints, convert to hex and parse
-            std::string hex_str = py::module_::import("builtins")
-                .attr("hex")(obj).cast<std::string>();
-            // This is a limitation — for v0.1, return as string with a note
-            return Napi::String::New(env, s);
+            // Overflows int64 — extract sign and 64-bit words from Python int
+            py::object pyint = py::reinterpret_borrow<py::object>(obj);
+            int sign_bit = 0;
+            if (pyint < py::int_(0)) {
+                sign_bit = 1;
+                pyint = -pyint;
+            }
+
+            int bit_len = pyint.attr("bit_length")().cast<int>();
+            size_t word_count = static_cast<size_t>((bit_len + 63) / 64);
+            if (word_count == 0) word_count = 1;
+
+            std::vector<uint64_t> words(word_count);
+            py::object mask = py::eval("(1 << 64) - 1");
+            py::object shift = py::int_(64);
+            for (size_t i = 0; i < word_count; ++i) {
+                words[i] = (pyint & mask).cast<uint64_t>();
+                pyint = pyint >> shift;
+            }
+
+            return Napi::BigInt::New(env, sign_bit, word_count, words.data());
         }
     }
 
@@ -170,6 +175,16 @@ Napi::Value PyToJs(Napi::Env env, py::handle obj) {
         PyErr_Clear();
     }
 
+    // Python class instance with methods -> JS proxy object.
+    // Skip modules and types to avoid deep/infinite recursion.
+    try {
+        if (py::hasattr(obj, "__dict__") &&
+            !py::isinstance<py::module_>(obj) &&
+            !PyType_Check(obj.ptr())) {
+            return BuildObjectProxy(env, obj);
+        }
+    } catch (...) {}
+
     // Fallback: convert to string representation
     try {
         std::string repr = py::repr(obj).cast<std::string>();
@@ -288,6 +303,11 @@ py::object JsToPy(Napi::Value value) {
         }
     }
 
+    // Function -> Python callable via JsCallbackWrapper
+    if (value.IsFunction()) {
+        return JsCallbackWrapper::Create(value.Env(), value.As<Napi::Function>());
+    }
+
     // Date -> datetime
     if (value.IsObject()) {
         auto obj = value.As<Napi::Object>();
@@ -384,6 +404,112 @@ std::string FormatPythonException() {
         PyErr_Restore(type, value, traceback);
     }
     return "Unknown Python error";
+}
+
+// ─── GIL-safe Python object pointers ─────────────────────────────────────────
+
+// Custom deleter that acquires the GIL before destroying a py::object.
+// Required because JS GC can destroy captured py::objects at any time,
+// and Py_XDECREF is unsafe without the GIL.
+static void GilSafeDelete(py::object* ptr) {
+    py::gil_scoped_acquire gil;
+    delete ptr;
+}
+
+static std::shared_ptr<py::object> MakeGilSafePtr(py::object obj) {
+    return std::shared_ptr<py::object>(new py::object(std::move(obj)), GilSafeDelete);
+}
+
+// ─── Sync/Async callers ──────────────────────────────────────────────────────
+
+Napi::Value MakeSyncCaller(Napi::Env env, py::object py_func) {
+    auto func_ptr = MakeGilSafePtr(std::move(py_func));
+
+    return Napi::Function::New(env, [func_ptr](const Napi::CallbackInfo& info) -> Napi::Value {
+        Napi::Env env = info.Env();
+        py::gil_scoped_acquire gil;
+
+        try {
+            py::tuple args(info.Length());
+            for (size_t i = 0; i < info.Length(); ++i) {
+                args[i] = JsToPy(info[i]);
+            }
+
+            py::object result = (*func_ptr)(*args);
+            return PyToJs(env, result);
+        } catch (const py::error_already_set& e) {
+            Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+            return env.Undefined();
+        } catch (const std::exception& e) {
+            Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+    });
+}
+
+Napi::Value MakeAsyncCaller(Napi::Env env, py::object py_func) {
+    auto func_ptr = MakeGilSafePtr(std::move(py_func));
+
+    return Napi::Function::New(env, [func_ptr](const Napi::CallbackInfo& info) -> Napi::Value {
+        Napi::Env env = info.Env();
+        auto deferred = Napi::Promise::Deferred::New(env);
+
+        std::vector<py::object> args;
+        args.reserve(info.Length());
+
+        {
+            py::gil_scoped_acquire gil;
+            for (size_t i = 0; i < info.Length(); ++i) {
+                args.push_back(JsToPy(info[i]));
+            }
+        }
+
+        auto worker = new PyCallWorker(env, *func_ptr, std::move(args), deferred);
+        worker->Queue();
+
+        return deferred.Promise();
+    });
+}
+
+// ─── Object proxy ────────────────────────────────────────────────────────────
+
+Napi::Object BuildObjectProxy(Napi::Env env, py::handle obj) {
+    auto proxy = Napi::Object::New(env);
+
+    py::object callable_fn = py::module_::import("builtins").attr("callable");
+    py::list attrs = py::module_::import("builtins").attr("dir")(obj);
+
+    for (auto& attr_name_handle : attrs) {
+        std::string name = attr_name_handle.cast<std::string>();
+
+        // Skip private/dunder attributes
+        if (!name.empty() && name[0] == '_') continue;
+
+        py::object attr;
+        try {
+            attr = obj.attr(name.c_str());
+        } catch (...) {
+            continue;
+        }
+
+        bool is_callable = false;
+        try {
+            is_callable = callable_fn(attr).cast<bool>();
+        } catch (...) {}
+
+        if (is_callable) {
+            proxy.Set(name, MakeAsyncCaller(env, attr));
+            proxy.Set(name + "Sync", MakeSyncCaller(env, attr));
+        } else {
+            try {
+                proxy.Set(name, PyToJs(env, attr));
+            } catch (...) {
+                // Skip unconvertible attributes
+            }
+        }
+    }
+
+    return proxy;
 }
 
 } // namespace node_api_python
