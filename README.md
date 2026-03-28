@@ -8,8 +8,6 @@
 
 Call Python from JavaScript with zero IPC overhead. Types are converted automatically. NumPy arrays are shared without copying. TypeScript definitions are generated from Python type hints.
 
-> **Status:** Early development. Not ready for production. [See the roadmap.](ROADMAP.md)
-
 ---
 
 ## Table of Contents

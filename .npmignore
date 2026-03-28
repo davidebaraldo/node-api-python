@@ -1,0 +1,19 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Development
+test/
+examples/
+.github/
+.editorconfig
+.gitignore
+vitest.config.ts
+tsconfig.json
+pyproject.toml
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+ROADMAP.md
+CHANGELOG.md

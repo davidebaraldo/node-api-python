@@ -13,7 +13,7 @@
     "dist/",
     "prebuilds/",
     "src/cpp/",
-    "src/python/typegen/",
+    "src/python/typegen/*.py",
     "scripts/",
     "CMakeLists.txt",
     "README.md",

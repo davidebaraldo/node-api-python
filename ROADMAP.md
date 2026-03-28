@@ -147,17 +147,17 @@ Zero-friction install: `npm install node-api-python` just works, no compiler nee
 
 ---
 
-## Phase 7 — Boilerplate Templates & DX `v1.1.0`
+## Phase 7 — Boilerplate Templates & DX `v0.7.0`
 
 Project scaffolding for common use cases. One command to start.
 
 - [x] `npx node-api-python init` — basic project
-- [ ] `npx node-api-python init --template express` — Express + Python API
+- [x] `npx node-api-python init --template express` — Express + Python API
+- [x] `npx node-api-python init --template data` — pandas/numpy data pipeline
+- [x] `npx node-api-python init --template fullstack` — TypeScript + Python with auto-generated types
+- [x] `npx node-api-python init --template cli` — CLI tool with Python core logic
 - [ ] `npx node-api-python init --template fastapi` — FastAPI served from Node
-- [ ] `npx node-api-python init --template data` — pandas/numpy data pipeline
 - [ ] `npx node-api-python init --template ml` — ML inference (scikit-learn/pytorch)
-- [ ] `npx node-api-python init --template fullstack` — TypeScript + React + Python backend
-- [ ] `npx node-api-python init --template cli` — CLI tool with Python core logic
 - [ ] Interactive mode: `npx node-api-python init` asks which template
 
 Each template includes:
@@ -165,7 +165,6 @@ Each template includes:
 - Python modules with full type hints
 - Auto-generated TypeScript definitions
 - README with setup instructions
-- Tests for both JS and Python
 
 ---
 
