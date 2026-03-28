@@ -1,9 +1,9 @@
 # Roadmap
 
-> **Current version: v0.6.0** — Phases 1-6 complete. Prebuilt binaries ship out of the box.
+> **Current version: [v0.6.0](https://www.npmjs.com/package/node-api-python)** — Published on npm. Phases 1-6 complete. Prebuilt binaries ship out of the box.
 
 > This is a living document. Priorities may shift based on community feedback.
-> Want to influence the roadmap? [Open a discussion](https://github.com/davidebaraldo/node-api-python/discussions).
+> Want to influence the roadmap? [Open a discussion](https://github.com/davidebaraldo/node-api-python/discussions) or [file an issue](https://github.com/davidebaraldo/node-api-python/issues).
 
 ## Vision
 

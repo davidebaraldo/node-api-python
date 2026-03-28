@@ -1,12 +1,19 @@
 # node-api-python
 
 [![CI](https://github.com/davidebaraldo/node-api-python/actions/workflows/ci.yml/badge.svg)](https://github.com/davidebaraldo/node-api-python/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/node-api-python.svg)](https://www.npmjs.com/package/node-api-python)
+[![npm downloads](https://img.shields.io/npm/dm/node-api-python.svg)](https://www.npmjs.com/package/node-api-python)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Python](https://img.shields.io/badge/Python-3.10--3.14-3776AB?logo=python&logoColor=white)](https://python.org)
 
 **High-performance Node.js ↔ Python bridge via embedded CPython.**
 
 Call Python from JavaScript with zero IPC overhead. Types are converted automatically. NumPy arrays are shared without copying. TypeScript definitions are generated from Python type hints.
+
+```bash
+npm install node-api-python
+```
 
 ---
 
@@ -482,7 +489,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contributor guidelines.
 - [Contributing](CONTRIBUTING.md) — how to contribute
 - [Changelog](CHANGELOG.md) — version history
 - [Security](SECURITY.md) — vulnerability reporting
+- [npm package](https://www.npmjs.com/package/node-api-python)
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — Copyright (c) 2026 Davide Baraldo
