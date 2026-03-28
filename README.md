@@ -138,6 +138,8 @@ npx node-api-python init my-project --template <name>
 | **data** | `npx node-api-python init my-pipeline --template data` | pandas/numpy data processing from Node.js |
 | **cli** | `npx node-api-python init my-tool --template cli` | CLI tool with sync Python calls (hash, uuid, file analysis) |
 | **fullstack** | `npx node-api-python init my-app --template fullstack` | TypeScript + Python with auto-generated `.d.ts` types |
+| **fastapi** | `npx node-api-python init my-api --template fastapi` | FastAPI server + direct in-process calls from Node.js |
+| **ml** | `npx node-api-python init my-ml --template ml` | ML inference with scikit-learn, train & predict from Node.js |
 
 Every template includes:
 - Working code that runs immediately with `npm start`
@@ -282,6 +284,7 @@ All calls are synchronous — no async boilerplate. Uses only the Python standar
 
 ```bash
 npx node-api-python init [name] [--template <t>]  # Scaffold a new project
+npx node-api-python init                           # Interactive mode — choose template
 npx node-api-python doctor                         # Check your environment
 npx node-api-python find-python                    # Show detected Python
 npx node-api-python generate-types <file> [-o dir] # Generate .d.ts from type hints

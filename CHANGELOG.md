@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-03-28
+
+### Added
+- FastAPI template: `npx node-api-python init --template fastapi` — FastAPI server with direct in-process calls from Node.js
+- ML template: `npx node-api-python init --template ml` — scikit-learn inference (train + predict) from Node.js
+- Interactive mode: `npx node-api-python init` without arguments prompts for project name and template
+
+### Changed
+- Excluded Python `__pycache__` bytecode from npm package (38kB vs 48kB)
+- Added `.editorconfig` for cross-editor consistency
+- Updated README with npm badges, downloads counter, and install command
+
 ## [0.6.0] - 2026-03-27
 
 ### Added
@@ -72,7 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial project scaffolding
 
-[Unreleased]: https://github.com/davidebaraldo/node-api-python/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/davidebaraldo/node-api-python/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/davidebaraldo/node-api-python/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/davidebaraldo/node-api-python/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/davidebaraldo/node-api-python/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/davidebaraldo/node-api-python/compare/v0.3.0...v0.4.0

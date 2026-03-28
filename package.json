@@ -1,6 +1,6 @@
 {
   "name": "node-api-python",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "High-performance Node.js ↔ Python bridge via embedded CPython",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Current version: [v0.6.0](https://www.npmjs.com/package/node-api-python)** — Published on npm. Phases 1-6 complete. Prebuilt binaries ship out of the box.
+> **Current version: [v0.7.0](https://www.npmjs.com/package/node-api-python)** — Published on npm. Phases 1-7 complete. All templates and interactive mode shipped.
 
 > This is a living document. Priorities may shift based on community feedback.
 > Want to influence the roadmap? [Open a discussion](https://github.com/davidebaraldo/node-api-python/discussions) or [file an issue](https://github.com/davidebaraldo/node-api-python/issues).
@@ -147,7 +147,7 @@ Zero-friction install: `npm install node-api-python` just works, no compiler nee
 
 ---
 
-## Phase 7 — Boilerplate Templates & DX `v0.7.0`
+## Phase 7 — Boilerplate Templates & DX `v0.7.0` (Complete)
 
 Project scaffolding for common use cases. One command to start.
 
@@ -156,9 +156,9 @@ Project scaffolding for common use cases. One command to start.
 - [x] `npx node-api-python init --template data` — pandas/numpy data pipeline
 - [x] `npx node-api-python init --template fullstack` — TypeScript + Python with auto-generated types
 - [x] `npx node-api-python init --template cli` — CLI tool with Python core logic
-- [ ] `npx node-api-python init --template fastapi` — FastAPI served from Node
-- [ ] `npx node-api-python init --template ml` — ML inference (scikit-learn/pytorch)
-- [ ] Interactive mode: `npx node-api-python init` asks which template
+- [x] `npx node-api-python init --template fastapi` — FastAPI served from Node
+- [x] `npx node-api-python init --template ml` — ML inference with scikit-learn
+- [x] Interactive mode: `npx node-api-python init` asks which template
 
 Each template includes:
 - Working code you can run immediately

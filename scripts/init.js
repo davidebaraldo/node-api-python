@@ -13,6 +13,8 @@
  *   data       Data pipeline with pandas/numpy
  *   cli        CLI tool with Python core logic
  *   fullstack  TypeScript + Python with auto-generated types
+ *   fastapi    FastAPI server managed from Node.js
+ *   ml         ML inference with scikit-learn
  */
 
 const fs = require('fs')
@@ -62,6 +64,20 @@ const TEMPLATES = {
     devDeps: { tsx: '^4.0.0', typescript: '^5.7.0' },
     pythonDeps: [],
   },
+  fastapi: {
+    name: 'FastAPI',
+    description: 'FastAPI server managed and called from Node.js',
+    deps: {},
+    devDeps: {},
+    pythonDeps: ['fastapi', 'uvicorn'],
+  },
+  ml: {
+    name: 'ML Inference',
+    description: 'Machine learning inference with scikit-learn from Node.js',
+    deps: {},
+    devDeps: {},
+    pythonDeps: ['scikit-learn', 'numpy'],
+  },
 }
 
 function printTemplates() {
@@ -73,10 +89,45 @@ function printTemplates() {
   console.log(`\n  Usage: npx node-api-python init my-project --template express\n`)
 }
 
+// --- Interactive prompt helper ---
+function ask(question) {
+  const readline = require('readline')
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => { rl.close(); resolve(answer.trim()) })
+  })
+}
+
+async function interactiveInit() {
+  console.log('')
+  console.log(COLORS.bold('  node-api-python') + ' — project setup\n')
+
+  const name = await ask('  Project name (my-python-addon): ')
+  projectName = name || 'my-python-addon'
+
+  console.log('\n  Available templates:\n')
+  const keys = Object.keys(TEMPLATES)
+  keys.forEach((key, i) => {
+    const t = TEMPLATES[key]
+    const marker = key === 'basic' ? ' (default)' : ''
+    console.log(`    ${COLORS.cyan(`${i + 1})`)} ${key.padEnd(12)} ${t.description}${COLORS.dim(marker)}`)
+  })
+  console.log('')
+
+  const choice = await ask(`  Choose template [1-${keys.length}] (1): `)
+  const idx = parseInt(choice || '1') - 1
+  if (idx >= 0 && idx < keys.length) {
+    template = keys[idx]
+  } else if (choice && keys.includes(choice)) {
+    template = choice
+  }
+}
+
 // --- Parse args ---
 const args = process.argv.slice(3)
 let projectName = 'my-python-addon'
 let template = 'basic'
+let interactive = false
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--template' || args[i] === '-t') {
@@ -85,12 +136,19 @@ for (let i = 0; i < args.length; i++) {
   } else if (args[i] === '--list') {
     printTemplates()
     process.exit(0)
+  } else if (args[i] === '--interactive' || args[i] === '-i') {
+    interactive = true
   } else if (!args[i].startsWith('-')) {
     projectName = args[i]
   }
 }
 
-if (!TEMPLATES[template]) {
+// If no project name and no template specified, enter interactive mode
+if (args.length === 0) {
+  interactive = true
+}
+
+if (!interactive && !TEMPLATES[template]) {
   console.error(`\n  Unknown template: "${template}"`)
   printTemplates()
   process.exit(1)
@@ -98,15 +156,8 @@ if (!TEMPLATES[template]) {
 
 // --- File generators per template ---
 
-const projectDir = path.resolve(process.cwd(), projectName)
-
-if (fs.existsSync(projectDir)) {
-  console.error(`\n  Directory "${projectName}" already exists.\n`)
-  process.exit(1)
-}
-
 function createFile(relativePath, content) {
-  const fullPath = path.join(projectDir, relativePath)
+  const fullPath = path.join(path.resolve(process.cwd(), projectName), relativePath)
   const dir = path.dirname(fullPath)
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
   fs.writeFileSync(fullPath, content)
@@ -670,6 +721,272 @@ Python \\\`TypedDict\\\` and \\\`@dataclass\\\` become TypeScript \\\`interface\
 }
 
 // ============================================================
+// TEMPLATE: fastapi
+// ============================================================
+function generateFastapi() {
+  createFile('package.json', makePackageJson())
+  createFile('.gitignore', GITIGNORE)
+
+  createFile('index.js', `const { execSync, spawn } = require('child_process')
+const python = require('node-api-python')
+
+const api = python.import('./python/api')
+
+// Start FastAPI server via uvicorn in background
+const PORT = process.env.PORT || 8000
+
+console.log(\`Starting FastAPI server on http://localhost:\${PORT}...\`)
+
+const uvicorn = spawn('python', ['-m', 'uvicorn', 'python.api:app', '--port', String(PORT)], {
+  stdio: 'inherit',
+  cwd: __dirname,
+})
+
+uvicorn.on('error', (err) => {
+  console.error('Failed to start uvicorn:', err.message)
+  console.error('Make sure uvicorn is installed: pip install uvicorn fastapi')
+  process.exit(1)
+})
+
+// Also call Python functions directly (in-process, no HTTP)
+setTimeout(async () => {
+  console.log('\\n--- Direct in-process calls (no HTTP overhead) ---')
+
+  const items = api.list_itemsSync()
+  console.log('Items:', items)
+
+  const created = api.create_itemSync({ name: 'Widget', price: 29.99, in_stock: true })
+  console.log('Created:', created)
+
+  const stats = api.get_statsSync()
+  console.log('Stats:', stats)
+  console.log('')
+  console.log('FastAPI is also running — try:')
+  console.log(\`  curl http://localhost:\${PORT}/items\`)
+  console.log(\`  curl http://localhost:\${PORT}/docs  (Swagger UI)\`)
+}, 2000)
+
+process.on('SIGINT', () => { uvicorn.kill(); process.exit(0) })
+process.on('SIGTERM', () => { uvicorn.kill(); process.exit(0) })
+`)
+
+  createFile('python/__init__.py', '')
+
+  createFile('python/api.py', `"""FastAPI application — callable from both HTTP and Node.js in-process."""
+from __future__ import annotations
+
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI(title="${projectName}", version="1.0.0")
+
+
+class Item(BaseModel):
+    name: str
+    price: float
+    in_stock: bool = True
+
+
+# In-memory store
+_items: list[dict] = [
+    {"id": 1, "name": "Gadget", "price": 19.99, "in_stock": True},
+    {"id": 2, "name": "Gizmo", "price": 49.99, "in_stock": False},
+]
+_next_id = 3
+
+
+# --- HTTP endpoints ---
+
+@app.get("/items")
+def http_list_items() -> list[dict]:
+    return _items
+
+
+@app.post("/items")
+def http_create_item(item: Item) -> dict:
+    return create_item(item.model_dump())
+
+
+@app.get("/stats")
+def http_stats() -> dict:
+    return get_stats()
+
+
+# --- Functions callable directly from Node.js (no HTTP) ---
+
+def list_items() -> list[dict]:
+    """List all items."""
+    return _items
+
+
+def create_item(data: dict) -> dict:
+    """Create a new item. Returns the created item with ID."""
+    global _next_id
+    item = {"id": _next_id, **data}
+    _items.append(item)
+    _next_id += 1
+    return item
+
+
+def get_stats() -> dict[str, int | float]:
+    """Get inventory statistics."""
+    total = len(_items)
+    in_stock = sum(1 for i in _items if i.get("in_stock", False))
+    avg_price = sum(i["price"] for i in _items) / total if total else 0
+    return {"total_items": total, "in_stock": in_stock, "avg_price": round(avg_price, 2)}
+`)
+
+  createFile('README.md', makeReadme(`
+## Run
+
+\\\`\\\`\\\`bash
+pip install fastapi uvicorn
+npm start
+\\\`\\\`\\\`
+
+This starts FastAPI (HTTP on port 8000) AND calls Python functions directly from Node.js.
+
+- **HTTP:** \\\`curl http://localhost:8000/items\\\`
+- **Swagger UI:** http://localhost:8000/docs
+- **In-process:** Node.js calls Python functions directly, no network overhead
+`))
+}
+
+// ============================================================
+// TEMPLATE: ml
+// ============================================================
+function generateMl() {
+  createFile('package.json', makePackageJson())
+  createFile('.gitignore', GITIGNORE + 'models/\n')
+
+  createFile('index.js', `const python = require('node-api-python')
+
+const ml = python.import('./python/model')
+
+async function main() {
+  console.log('=== ML Inference with scikit-learn ===\\n')
+
+  // Train a model on sample data
+  console.log('Training model...')
+  const metrics = await ml.train()
+  console.log('Training complete:', metrics)
+
+  // Run predictions
+  console.log('\\nPredictions:')
+  const samples = [
+    { sepal_length: 5.1, sepal_width: 3.5, petal_length: 1.4, petal_width: 0.2 },
+    { sepal_length: 7.0, sepal_width: 3.2, petal_length: 4.7, petal_width: 1.4 },
+    { sepal_length: 6.3, sepal_width: 3.3, petal_length: 6.0, petal_width: 2.5 },
+  ]
+
+  for (const sample of samples) {
+    const result = await ml.predict(sample)
+    console.log(\`  \${JSON.stringify(sample)} => \${result.species} (\${(result.confidence * 100).toFixed(1)}%)\`)
+  }
+
+  // Batch predictions
+  console.log('\\nBatch prediction:')
+  const batch = await ml.predict_batch(samples)
+  console.log(\`  \${batch.length} predictions:\`, batch.map(r => r.species))
+
+  // Model info
+  const info = await ml.model_info()
+  console.log('\\nModel info:', info)
+}
+
+main().catch(console.error)
+`)
+
+  createFile('python/model.py', `"""ML model — train and predict using scikit-learn."""
+from __future__ import annotations
+
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+# Module-level model (persists across calls)
+_model: RandomForestClassifier | None = None
+_target_names: list[str] = []
+_feature_names: list[str] = ["sepal_length", "sepal_width", "petal_length", "petal_width"]
+
+
+def train(test_size: float = 0.2, n_estimators: int = 100) -> dict[str, float]:
+    """Train a RandomForest on the Iris dataset. Returns metrics."""
+    global _model, _target_names
+
+    iris = load_iris()
+    _target_names = list(iris.target_names)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        iris.data, iris.target, test_size=test_size, random_state=42,
+    )
+
+    _model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
+    _model.fit(X_train, y_train)
+
+    y_pred = _model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+
+    return {
+        "accuracy": round(float(accuracy), 4),
+        "train_samples": len(X_train),
+        "test_samples": len(X_test),
+        "n_estimators": n_estimators,
+    }
+
+
+def predict(sample: dict[str, float]) -> dict[str, str | float]:
+    """Predict species for a single sample."""
+    if _model is None:
+        train()
+
+    features = np.array([[sample[f] for f in _feature_names]])
+    prediction = int(_model.predict(features)[0])
+    probabilities = _model.predict_proba(features)[0]
+
+    return {
+        "species": _target_names[prediction],
+        "confidence": round(float(probabilities[prediction]), 4),
+        "probabilities": {name: round(float(p), 4) for name, p in zip(_target_names, probabilities)},
+    }
+
+
+def predict_batch(samples: list[dict[str, float]]) -> list[dict[str, str | float]]:
+    """Predict species for multiple samples."""
+    return [predict(s) for s in samples]
+
+
+def model_info() -> dict[str, str | int | list[str]]:
+    """Return model metadata."""
+    if _model is None:
+        return {"status": "not trained"}
+
+    return {
+        "status": "trained",
+        "type": "RandomForestClassifier",
+        "n_estimators": _model.n_estimators,
+        "features": _feature_names,
+        "classes": _target_names,
+    }
+`)
+
+  createFile('README.md', makeReadme(`
+## Run
+
+\\\`\\\`\\\`bash
+pip install scikit-learn numpy
+npm start
+\\\`\\\`\\\`
+
+This trains a RandomForest classifier on the Iris dataset and runs predictions from Node.js.
+
+The model persists in memory — train once, predict many times with zero overhead.
+`))
+}
+
+// ============================================================
 // Shared README generator
 // ============================================================
 function makeReadme(extra = '') {
@@ -702,31 +1019,51 @@ ${extra.replace(/\\\\/g, '')}
 // Run
 // ============================================================
 
-console.log('')
-console.log(COLORS.bold(`  Creating ${projectName}`) + COLORS.dim(` (template: ${template})`))
-console.log('')
+async function run() {
+  if (interactive) {
+    await interactiveInit()
+  }
 
-switch (template) {
-  case 'basic': generateBasic(); break
-  case 'express': generateExpress(); break
-  case 'data': generateData(); break
-  case 'cli': generateCli(); break
-  case 'fullstack': generateFullstack(); break
+  // Re-resolve projectDir after potential interactive change
+  const resolvedDir = path.resolve(process.cwd(), projectName)
+
+  if (fs.existsSync(resolvedDir)) {
+    console.error(`\n  Directory "${projectName}" already exists.\n`)
+    process.exit(1)
+  }
+
+  console.log('')
+  console.log(COLORS.bold(`  Creating ${projectName}`) + COLORS.dim(` (template: ${template})`))
+  console.log('')
+
+  const generators = {
+    basic: generateBasic,
+    express: generateExpress,
+    data: generateData,
+    cli: generateCli,
+    fullstack: generateFullstack,
+    fastapi: generateFastapi,
+    ml: generateMl,
+  }
+
+  generators[template]()
+
+  const tmpl = TEMPLATES[template]
+
+  console.log(COLORS.green('  Done!') + ' Project created at ' + COLORS.cyan(resolvedDir))
+  console.log('')
+  console.log('  Next steps:')
+  console.log('')
+  console.log(COLORS.dim(`    cd ${projectName}`))
+  console.log(COLORS.dim('    npm install'))
+  if (tmpl.pythonDeps.length > 0) {
+    console.log(COLORS.dim(`    pip install ${tmpl.pythonDeps.join(' ')}`))
+  }
+  console.log(COLORS.dim('    npx node-api-python doctor'))
+  console.log(COLORS.dim('    npm start'))
+  console.log('')
+  console.log('  Add your Python modules in the ' + COLORS.cyan('python/') + ' folder.')
+  console.log('')
 }
 
-const tmpl = TEMPLATES[template]
-
-console.log(COLORS.green('  Done!') + ' Project created at ' + COLORS.cyan(projectDir))
-console.log('')
-console.log('  Next steps:')
-console.log('')
-console.log(COLORS.dim(`    cd ${projectName}`))
-console.log(COLORS.dim('    npm install'))
-if (tmpl.pythonDeps.length > 0) {
-  console.log(COLORS.dim(`    pip install ${tmpl.pythonDeps.join(' ')}`))
-}
-console.log(COLORS.dim('    npx node-api-python doctor'))
-console.log(COLORS.dim('    npm start'))
-console.log('')
-console.log('  Add your Python modules in the ' + COLORS.cyan('python/') + ' folder.')
-console.log('')
+run().catch((err) => { console.error(err); process.exit(1) })
