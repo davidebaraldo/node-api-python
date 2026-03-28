@@ -139,7 +139,5 @@ jobs:
           files: prebuilds/**/*
           fail_on_unmatched_files: false
 
-      - name: Publish to npm
+      - name: Publish to npm (Trusted Publishing via OIDC)
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
