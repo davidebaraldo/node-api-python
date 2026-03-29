@@ -45,6 +45,7 @@ jobs:
         run: npm run build:ts
 
       - name: Run benchmarks
+        timeout-minutes: 5
         run: node bench/run.js --json | tee bench-results.json
 
       - name: Transform results for github-action-benchmark

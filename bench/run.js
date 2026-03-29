@@ -33,8 +33,7 @@ function padLeft(s, n) { return ' '.repeat(Math.max(0, n - s.length)) + s }
  * Measure sync function: returns { opsPerSec, avgUs, minUs, maxUs }.
  * Runs for at least `minTimeMs` and at least `minIter` iterations.
  */
-function benchSync(fn, { minTimeMs = 1000, minIter = 50, warmup = 10 } = {}) {
-  // warmup
+function benchSync(fn, { minTimeMs = 500, minIter = 20, warmup = 5 } = {}) {
   for (let i = 0; i < warmup; i++) fn()
 
   let total = 0
@@ -65,9 +64,9 @@ function benchSync(fn, { minTimeMs = 1000, minIter = 50, warmup = 10 } = {}) {
 }
 
 /**
- * Measure async function.
+ * Measure async function with a hard timeout.
  */
-async function benchAsync(fn, { minTimeMs = 1000, minIter = 50, warmup = 10 } = {}) {
+async function benchAsync(fn, { minTimeMs = 500, minIter = 20, warmup = 3, timeoutMs = 30000 } = {}) {
   for (let i = 0; i < warmup; i++) await fn()
 
   let total = 0
@@ -75,8 +74,9 @@ async function benchAsync(fn, { minTimeMs = 1000, minIter = 50, warmup = 10 } = 
   let min = Infinity
   let max = 0
   const deadline = Date.now() + minTimeMs
+  const hardDeadline = Date.now() + timeoutMs
 
-  while (count < minIter || Date.now() < deadline) {
+  while ((count < minIter || Date.now() < deadline) && Date.now() < hardDeadline) {
     const t0 = performance.now()
     await fn()
     const elapsed = (performance.now() - t0) * 1000
@@ -85,6 +85,8 @@ async function benchAsync(fn, { minTimeMs = 1000, minIter = 50, warmup = 10 } = 
     if (elapsed < min) min = elapsed
     if (elapsed > max) max = elapsed
   }
+
+  if (count === 0) throw new Error('No iterations completed before timeout')
 
   const avgUs = total / count
   return {
@@ -123,15 +125,15 @@ function defineBenchmarks(python) {
   addSync('type: int round-trip', () => mod.addSync(100, 200))
   addSync('type: string echo (short)', () => mod.echo_stringSync('hello'))
   addSync('type: string echo (1KB)', () => mod.echo_stringSync('x'.repeat(1024)))
-  addSync('type: string echo (64KB)', () => mod.echo_stringSync('x'.repeat(65536)), { minIter: 20 })
+  addSync('type: string echo (64KB)', () => mod.echo_stringSync('x'.repeat(65536)))
   addSync('type: datetime round-trip', () => mod.roundtrip_datetimeSync(new Date()))
 
   // --- Collections ---
   addSync('type: list[100] from Python', () => mod.build_listSync(100))
-  addSync('type: list[10000] from Python', () => mod.build_listSync(10000), { minIter: 20 })
+  addSync('type: list[10000] from Python', () => mod.build_listSync(10000))
   addSync('type: dict[100] from Python', () => mod.build_dictSync(100))
-  addSync('type: dict[10000] from Python', () => mod.build_dictSync(10000), { minIter: 20 })
-  addSync('type: sum list[1000] (JS→Py)', () => mod.sum_listSync(Array.from({ length: 1000 }, (_, i) => i)))
+  addSync('type: dict[10000] from Python', () => mod.build_dictSync(10000))
+  addSync('type: sum list[1000] (JS->Py)', () => mod.sum_listSync(Array.from({ length: 1000 }, (_, i) => i)))
   addSync('type: nested depth=20', () => mod.build_nestedSync(20))
 
   // --- NumPy zero-copy (skipped if numpy not installed) ---
@@ -146,7 +148,7 @@ function defineBenchmarks(python) {
 
     addSync('numpy: sum Float64[100]', () => mod.numpy_sumSync(small))
     addSync('numpy: sum Float64[10K]', () => mod.numpy_sumSync(medium))
-    addSync('numpy: sum Float64[1M]', () => mod.numpy_sumSync(large), { minIter: 20 })
+    addSync('numpy: sum Float64[1M]', () => mod.numpy_sumSync(large))
     addSync('numpy: create array[10K]', () => mod.numpy_createSync(10000))
     addSync('numpy: multiply Float64[10K]', () => mod.numpy_multiplySync(medium, 2.0))
   }
@@ -154,7 +156,7 @@ function defineBenchmarks(python) {
   // --- Callbacks ---
   addSync('callback: 1 invocation', () => mod.call_n_timesSync((i) => i, 1))
   addSync('callback: 100 invocations', () => mod.call_n_timesSync((i) => i, 100))
-  addSync('callback: 1000 invocations', () => mod.call_n_timesSync((i) => i, 1000), { minIter: 20 })
+  addSync('callback: 1000 invocations', () => mod.call_n_timesSync((i) => i, 1000))
   addSync('callback: transform list[100]', () => {
     mod.transform_listSync(Array.from({ length: 100 }, (_, i) => i), (x) => x * 2)
   })
@@ -167,7 +169,7 @@ function defineBenchmarks(python) {
       mod.cpu_fib(30),
       mod.cpu_fib(30),
     ])
-  }, { minIter: 10 })
+  }, { minIter: 5 })
 
   addAsync('async: 4x concurrent add', async () => {
     await Promise.all([
@@ -210,7 +212,6 @@ async function main() {
 
   if (!jsonOutput) {
     console.log(`  Running ${benchmarks.length} benchmarks...`)
-    // Check if numpy was skipped
     if (!benchmarks.some((b) => b.name.startsWith('numpy:'))) {
       console.log('  (numpy not installed — numpy benchmarks skipped)')
     }
@@ -244,7 +245,6 @@ async function main() {
       if (!jsonOutput) {
         console.log(`FAILED: ${err.message.split('\n')[0]}`)
       }
-      // skip this benchmark but continue running the rest
     }
   }
 
