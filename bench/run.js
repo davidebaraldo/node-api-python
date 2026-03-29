@@ -224,20 +224,27 @@ async function main() {
       process.stdout.write(`  \u25b6 ${bench.name} ... `)
     }
 
-    const opts = bench.opts || {}
-    const result = bench.async
-      ? await benchAsync(bench.fn, opts)
-      : benchSync(bench.fn, opts)
+    try {
+      const opts = bench.opts || {}
+      const result = bench.async
+        ? await benchAsync(bench.fn, opts)
+        : benchSync(bench.fn, opts)
 
-    results.push({ name: bench.name, ...result })
+      results.push({ name: bench.name, ...result })
 
-    if (!jsonOutput) {
-      console.log(
-        `${formatNum(result.opsPerSec)} ops/s  ` +
-        `(avg ${formatTime(result.avgUs)}, ` +
-        `min ${formatTime(result.minUs)}, ` +
-        `max ${formatTime(result.maxUs)})`
-      )
+      if (!jsonOutput) {
+        console.log(
+          `${formatNum(result.opsPerSec)} ops/s  ` +
+          `(avg ${formatTime(result.avgUs)}, ` +
+          `min ${formatTime(result.minUs)}, ` +
+          `max ${formatTime(result.maxUs)})`
+        )
+      }
+    } catch (err) {
+      if (!jsonOutput) {
+        console.log(`FAILED: ${err.message.split('\n')[0]}`)
+      }
+      // skip this benchmark but continue running the rest
     }
   }
 

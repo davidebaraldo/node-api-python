@@ -57,11 +57,11 @@ def has_numpy():
 
 
 def numpy_sum(arr):
-    return float(_np.sum(arr))
+    return float(_np.sum(_np.asarray(arr)))
 
 
 def numpy_multiply(arr, scalar):
-    return _np.asarray(arr) * scalar
+    return _np.asarray(arr, dtype=_np.float64) * scalar
 
 
 def numpy_create(n):
