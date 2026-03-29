@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Current version: [v0.7.0](https://www.npmjs.com/package/node-api-python)** — Published on npm. Phases 1-7 complete. All templates and interactive mode shipped.
+> **Current version: [v0.8.0](https://www.npmjs.com/package/node-api-python)** — Published on npm. Phases 1-8 complete. Benchmark suite shipped.
 
 > This is a living document. Priorities may shift based on community feedback.
 > Want to influence the roadmap? [Open a discussion](https://github.com/davidebaraldo/node-api-python/discussions) or [file an issue](https://github.com/davidebaraldo/node-api-python/issues).
@@ -168,15 +168,85 @@ Each template includes:
 
 ---
 
+## Phase 8 — Benchmark Suite `v0.8.0` (Complete)
+
+Public, reproducible performance benchmarks covering every layer of the bridge.
+
+- [x] `npm run bench` runs the full suite
+- [x] Sync & async function call latency (noop, primitives)
+- [x] Type marshaling throughput (strings, lists, dicts, nested objects, datetime)
+- [x] NumPy zero-copy performance (100 → 1M element arrays)
+- [x] Callback overhead (1, 100, 1000 invocations)
+- [x] Async concurrency (parallel calls)
+- [x] Formatted table output + `--json` for CI
+- [x] `--filter` flag for targeted runs
+
+```bash
+npm run bench                    # run all
+npm run bench -- --filter numpy  # only numpy benchmarks
+npm run bench -- --json          # machine-readable output
+```
+
+---
+
+## Phase 9 — Cross-Language Stack Traces `v0.9.0`
+
+Unified error reporting: when Python raises, the JS stack trace includes the Python traceback.
+
+- [ ] Capture full Python traceback (file, line, function)
+- [ ] Attach as structured data on the JS `Error` object
+- [ ] Format combined stack: JS frames + Python frames in one trace
+- [ ] Source-map awareness for TypeScript callers
+
+```
+Error: ValueError: invalid input
+    at predict (model.py:42)
+    at Module.predictSync (node-api-python)
+    at handler (server.ts:15)
+```
+
+---
+
+## Phase 10 — Test Coverage Hardening `v0.10.0`
+
+Harden the test suite for a stable v1.0 release.
+
+- [ ] Coverage targets: ≥90% line coverage on JS, ≥80% on C++ bridge
+- [ ] Edge cases: large BigInt, deeply nested structures, error propagation paths
+- [ ] Stress tests: repeated import/release cycles, memory leak detection
+- [ ] CI coverage reporting with threshold enforcement
+
+---
+
+## Phase 11 — Python 3.13+ Free-Threaded Mode `v0.11.0`
+
+True parallelism without GIL for Python 3.13+ (PEP 703).
+
+- [ ] Detect free-threaded CPython at build time
+- [ ] Remove GIL acquire/release when running on free-threaded build
+- [ ] Benchmark: parallel Python calls vs. GIL-serialized
+- [ ] Document how to install free-threaded Python and enable the feature
+
+---
+
+## Phase 12 — v1.0 Stabilization
+
+Stable API, semver guarantees, production readiness.
+
+- [ ] API review: freeze public surface, document every export
+- [ ] `CHANGELOG.md` with structured history from v0.1 to v1.0
+- [ ] Migration guide from pythonia
+- [ ] Semantic versioning guarantees
+- [ ] LTS policy (supported Node.js / Python version matrix)
+
+---
+
 ## Future
 
 These are on the radar but not committed to a timeline:
 
-- **Python 3.13+ free-threaded mode** — true parallelism without GIL
 - **VS Code extension** — autocomplete Python modules in JavaScript
 - **Cross-language debugging** — inspect Python objects from Node.js debugger
-- **Cross-language stack traces** — unified error reporting
-- **Benchmark suite** — public, reproducible comparisons
 - **Plugin system** — community templates for `init`
 
 ---
