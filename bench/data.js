@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774810766687,
+  "lastUpdate": 1774810865416,
   "repoUrl": "https://github.com/davidebaraldo/node-api-python",
   "entries": {
     "Benchmark": [
@@ -1644,6 +1644,198 @@ window.BENCHMARK_DATA = {
             "range": "± 553 µs",
             "unit": "ops/sec",
             "extra": "avg 2087.53 µs | min 1747.41 µs | max 2852.96 µs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "baraldodavide@gmail.com",
+            "name": "Davide Baraldo",
+            "username": "davidebaraldo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "26538343f4f7c4230d8fe283187fb5a983e6a9af",
+          "message": "chore: trigger docs deploy for logo",
+          "timestamp": "2026-03-29T21:00:17+02:00",
+          "tree_id": "c55fc0d19d9dcb1bd34aefa9e6fb49c5e3f22f53",
+          "url": "https://github.com/davidebaraldo/node-api-python/commit/26538343f4f7c4230d8fe283187fb5a983e6a9af"
+        },
+        "date": 1774810865161,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "call: noop (sync)",
+            "value": 2794085.39,
+            "range": "± 34 µs",
+            "unit": "ops/sec",
+            "extra": "avg 0.36 µs | min 0.33 µs | max 68.13 µs"
+          },
+          {
+            "name": "call: noop (async)",
+            "value": 19781.89,
+            "range": "± 520 µs",
+            "unit": "ops/sec",
+            "extra": "avg 50.55 µs | min 36.20 µs | max 1076.35 µs"
+          },
+          {
+            "name": "call: add(1,2) (sync)",
+            "value": 1532947.39,
+            "range": "± 41 µs",
+            "unit": "ops/sec",
+            "extra": "avg 0.65 µs | min 0.60 µs | max 83.44 µs"
+          },
+          {
+            "name": "call: add(1,2) (async)",
+            "value": 20206.31,
+            "range": "± 94 µs",
+            "unit": "ops/sec",
+            "extra": "avg 49.49 µs | min 37.72 µs | max 226.50 µs"
+          },
+          {
+            "name": "type: int round-trip",
+            "value": 1495549.29,
+            "range": "± 36 µs",
+            "unit": "ops/sec",
+            "extra": "avg 0.67 µs | min 0.62 µs | max 72.31 µs"
+          },
+          {
+            "name": "type: string echo (short)",
+            "value": 1248394,
+            "range": "± 73 µs",
+            "unit": "ops/sec",
+            "extra": "avg 0.80 µs | min 0.73 µs | max 147.50 µs"
+          },
+          {
+            "name": "type: string echo (1KB)",
+            "value": 593878.2,
+            "range": "± 53 µs",
+            "unit": "ops/sec",
+            "extra": "avg 1.68 µs | min 1.46 µs | max 107.18 µs"
+          },
+          {
+            "name": "type: string echo (64KB)",
+            "value": 29036.33,
+            "range": "± 113 µs",
+            "unit": "ops/sec",
+            "extra": "avg 34.44 µs | min 26.57 µs | max 252.66 µs"
+          },
+          {
+            "name": "type: datetime round-trip",
+            "value": 218590.76,
+            "range": "± 69 µs",
+            "unit": "ops/sec",
+            "extra": "avg 4.57 µs | min 4.38 µs | max 141.81 µs"
+          },
+          {
+            "name": "type: list[100] from Python",
+            "value": 83694.85,
+            "range": "± 57 µs",
+            "unit": "ops/sec",
+            "extra": "avg 11.95 µs | min 11.40 µs | max 124.87 µs"
+          },
+          {
+            "name": "type: list[10000] from Python",
+            "value": 780.14,
+            "range": "± 82 µs",
+            "unit": "ops/sec",
+            "extra": "avg 1281.83 µs | min 1255.94 µs | max 1419.68 µs"
+          },
+          {
+            "name": "type: dict[100] from Python",
+            "value": 21430.22,
+            "range": "± 112 µs",
+            "unit": "ops/sec",
+            "extra": "avg 46.66 µs | min 44.48 µs | max 268.59 µs"
+          },
+          {
+            "name": "type: dict[10000] from Python",
+            "value": 189.35,
+            "range": "± 410 µs",
+            "unit": "ops/sec",
+            "extra": "avg 5281.31 µs | min 5113.27 µs | max 5933.27 µs"
+          },
+          {
+            "name": "type: sum list[1000] (JS->Py)",
+            "value": 5345.21,
+            "range": "± 304 µs",
+            "unit": "ops/sec",
+            "extra": "avg 187.08 µs | min 181.98 µs | max 789.00 µs"
+          },
+          {
+            "name": "type: nested depth=20",
+            "value": 76451.87,
+            "range": "± 127 µs",
+            "unit": "ops/sec",
+            "extra": "avg 13.08 µs | min 12.57 µs | max 265.81 µs"
+          },
+          {
+            "name": "numpy: create array[10K]",
+            "value": 42023.68,
+            "range": "± 943 µs",
+            "unit": "ops/sec",
+            "extra": "avg 23.80 µs | min 18.22 µs | max 1904.53 µs"
+          },
+          {
+            "name": "callback: 1 invocation",
+            "value": 226256.62,
+            "range": "± 4385 µs",
+            "unit": "ops/sec",
+            "extra": "avg 4.42 µs | min 3.01 µs | max 8773.69 µs"
+          },
+          {
+            "name": "callback: 100 invocations",
+            "value": 13433.27,
+            "range": "± 3415 µs",
+            "unit": "ops/sec",
+            "extra": "avg 74.44 µs | min 70.22 µs | max 6900.13 µs"
+          },
+          {
+            "name": "callback: 1000 invocations",
+            "value": 1383.54,
+            "range": "± 77 µs",
+            "unit": "ops/sec",
+            "extra": "avg 722.79 µs | min 709.47 µs | max 863.61 µs"
+          },
+          {
+            "name": "callback: transform list[100]",
+            "value": 9205.76,
+            "range": "± 103 µs",
+            "unit": "ops/sec",
+            "extra": "avg 108.63 µs | min 99.78 µs | max 306.69 µs"
+          },
+          {
+            "name": "cpu: fib(30) (sync)",
+            "value": 645815.27,
+            "range": "± 3054 µs",
+            "unit": "ops/sec",
+            "extra": "avg 1.55 µs | min 1.41 µs | max 6109.65 µs"
+          },
+          {
+            "name": "cpu: sum_squares(10000) (sync)",
+            "value": 1523.17,
+            "range": "± 1058 µs",
+            "unit": "ops/sec",
+            "extra": "avg 656.53 µs | min 604.27 µs | max 2719.40 µs"
+          },
+          {
+            "name": "async: 4x concurrent add",
+            "value": 506.02,
+            "range": "± 5127 µs",
+            "unit": "ops/sec",
+            "extra": "avg 1976.20 µs | min 1023.17 µs | max 11276.53 µs"
+          },
+          {
+            "name": "async: 4x concurrent cpu_fib(30)",
+            "value": 521.06,
+            "range": "± 690 µs",
+            "unit": "ops/sec",
+            "extra": "avg 1919.16 µs | min 1290.26 µs | max 2670.55 µs"
           }
         ]
       }
