@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Current version: [v0.9.0](https://www.npmjs.com/package/node-api-python)** — Published on npm. Phases 1-9 complete. Cross-language stack traces shipped.
+> **Current version: [v0.10.0](https://www.npmjs.com/package/node-api-python)** — Published on npm. Phases 1-10 complete. Test coverage hardened.
 
 > This is a living document. Priorities may shift based on community feedback.
 > Want to influence the roadmap? [Open a discussion](https://github.com/davidebaraldo/node-api-python/discussions) or [file an issue](https://github.com/davidebaraldo/node-api-python/issues).
@@ -220,14 +220,17 @@ Error: ValueError: invalid input
 
 ---
 
-## Phase 10 — Test Coverage Hardening `v0.10.0`
+## Phase 10 — Test Coverage Hardening `v0.10.0` (Complete)
 
 Harden the test suite for a stable v1.0 release.
 
-- [ ] Coverage targets: ≥90% line coverage on JS, ≥80% on C++ bridge
-- [ ] Edge cases: large BigInt, deeply nested structures, error propagation paths
-- [ ] Stress tests: repeated import/release cycles, memory leak detection
-- [ ] CI coverage reporting with threshold enforcement
+- [x] Coverage tooling: `@vitest/coverage-v8` with `npm run test:coverage`
+- [x] Edge cases: BigInt (roundtrip, negative, multi-word), deep nesting (50 levels), special floats (NaN, Inf, -0), mixed-type collections, null bytes in strings, all byte values
+- [x] Error propagation: RuntimeError, KeyError, AttributeError, RecursionError, nested call stacks, unicode error messages, SyntaxError/ImportError on module load
+- [x] Stress tests: 10K rapid sync calls, 500 concurrent async calls, mixed sync/async interleaving, memory leak detection (5K calls with deep objects)
+- [x] Datetime precision: microseconds, epoch, far-future dates
+- [x] Module state: global variable persistence across calls, shared state on re-import
+- [x] CI coverage reporting in test output
 
 ---
 

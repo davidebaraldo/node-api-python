@@ -13,6 +13,12 @@ export default defineConfig({
       },
     },
     testTimeout: 15000,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary'],
+      include: ['lib/**/*.ts', 'dist/**/*.js'],
+      exclude: ['test/**', 'bench/**', 'scripts/**', 'examples/**'],
+    },
   },
   resolve: {
     alias: {
