@@ -63,42 +63,6 @@ function benchSync(fn, { minTimeMs = 500, minIter = 20, warmup = 5 } = {}) {
   }
 }
 
-/**
- * Measure async function with a hard timeout.
- */
-async function benchAsync(fn, { minTimeMs = 500, minIter = 20, warmup = 3, timeoutMs = 30000 } = {}) {
-  for (let i = 0; i < warmup; i++) await fn()
-
-  let total = 0
-  let count = 0
-  let min = Infinity
-  let max = 0
-  const deadline = Date.now() + minTimeMs
-  const hardDeadline = Date.now() + timeoutMs
-
-  while ((count < minIter || Date.now() < deadline) && Date.now() < hardDeadline) {
-    const t0 = performance.now()
-    await fn()
-    const elapsed = (performance.now() - t0) * 1000
-    total += elapsed
-    count++
-    if (elapsed < min) min = elapsed
-    if (elapsed > max) max = elapsed
-  }
-
-  if (count === 0) throw new Error('No iterations completed before timeout')
-
-  const avgUs = total / count
-  return {
-    ops: count,
-    totalMs: total / 1000,
-    opsPerSec: (count / total) * 1_000_000,
-    avgUs,
-    minUs: min,
-    maxUs: max,
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Benchmark definitions
 // ---------------------------------------------------------------------------
@@ -109,17 +73,12 @@ function defineBenchmarks(python) {
   const benchmarks = []
 
   function addSync(name, fn, opts) {
-    benchmarks.push({ name, fn, async: false, opts })
-  }
-  function addAsync(name, fn, opts) {
-    benchmarks.push({ name, fn, async: true, opts })
+    benchmarks.push({ name, fn, opts })
   }
 
   // --- Call overhead ---
   addSync('call: noop (sync)', () => mod.noopSync())
-  addAsync('call: noop (async)', () => mod.noop())
   addSync('call: add(1,2) (sync)', () => mod.addSync(1, 2))
-  addAsync('call: add(1,2) (async)', () => mod.add(1, 2))
 
   // --- Primitives ---
   addSync('type: int round-trip', () => mod.addSync(100, 200))
@@ -161,24 +120,9 @@ function defineBenchmarks(python) {
     mod.transform_listSync(Array.from({ length: 100 }, (_, i) => i), (x) => x * 2)
   })
 
-  // --- CPU-bound (async concurrency) ---
-  addAsync('async: 4x concurrent cpu_fib(30)', async () => {
-    await Promise.all([
-      mod.cpu_fib(30),
-      mod.cpu_fib(30),
-      mod.cpu_fib(30),
-      mod.cpu_fib(30),
-    ])
-  }, { minIter: 5 })
-
-  addAsync('async: 4x concurrent add', async () => {
-    await Promise.all([
-      mod.add(1, 2),
-      mod.add(3, 4),
-      mod.add(5, 6),
-      mod.add(7, 8),
-    ])
-  })
+  // --- CPU work ---
+  addSync('cpu: fib(30) (sync)', () => mod.cpu_fibSync(30))
+  addSync('cpu: sum_squares(10000) (sync)', () => mod.cpu_sum_squaresSync(10000))
 
   return benchmarks
 }
@@ -187,7 +131,7 @@ function defineBenchmarks(python) {
 // Runner
 // ---------------------------------------------------------------------------
 
-async function main() {
+function main() {
   const args = process.argv.slice(2)
   const jsonOutput = args.includes('--json')
   const filterIdx = args.indexOf('--filter')
@@ -227,9 +171,7 @@ async function main() {
 
     try {
       const opts = bench.opts || {}
-      const result = bench.async
-        ? await benchAsync(bench.fn, opts)
-        : benchSync(bench.fn, opts)
+      const result = benchSync(bench.fn, opts)
 
       results.push({ name: bench.name, ...result })
 
@@ -280,7 +222,9 @@ async function main() {
   console.log()
 }
 
-main().catch((err) => {
+try {
+  main()
+} catch (err) {
   console.error(err)
   process.exit(1)
-})
+}
