@@ -406,6 +406,111 @@ std::string FormatPythonException() {
     return "Unknown Python error";
 }
 
+PyErrorInfo ExtractPythonError(const py::error_already_set& e) {
+    PyErrorInfo info;
+
+    // Extract type name
+    try {
+        py::object type_obj = e.type();
+        if (!type_obj.is_none()) {
+            info.type = py::str(type_obj.attr("__name__")).cast<std::string>();
+        }
+    } catch (...) {
+        info.type = "Exception";
+    }
+
+    // Extract message
+    try {
+        py::object value_obj = e.value();
+        if (!value_obj.is_none()) {
+            info.message = py::str(value_obj).cast<std::string>();
+        }
+    } catch (...) {
+        info.message = "Unknown error";
+    }
+
+    // Extract traceback frames
+    try {
+        py::module_ tb_mod = py::module_::import("traceback");
+        py::object value_obj = e.value();
+        py::object tb_obj = value_obj.attr("__traceback__");
+
+        if (!tb_obj.is_none()) {
+            py::object extract = tb_mod.attr("extract_tb")(tb_obj);
+            for (auto& frame_obj : extract) {
+                PyTracebackFrame frame;
+                frame.filename = py::str(frame_obj.attr("filename")).cast<std::string>();
+                frame.lineno = frame_obj.attr("lineno").cast<int>();
+                frame.funcname = py::str(frame_obj.attr("name")).cast<std::string>();
+                try {
+                    py::object line = frame_obj.attr("line");
+                    if (!line.is_none()) {
+                        frame.line = py::str(line).cast<std::string>();
+                    }
+                } catch (...) {}
+                info.frames.push_back(std::move(frame));
+            }
+        }
+    } catch (...) {
+        // traceback extraction failed — info.frames stays empty
+    }
+
+    return info;
+}
+
+std::string FormatCombinedStack(const PyErrorInfo& info) {
+    std::ostringstream ss;
+    ss << info.type << ": " << info.message << "\n";
+
+    // Python frames (innermost last, like Python convention)
+    for (const auto& f : info.frames) {
+        ss << "    at " << f.funcname << " (" << f.filename << ":" << f.lineno << ")";
+        if (!f.line.empty()) {
+            ss << " — " << f.line;
+        }
+        ss << "\n";
+    }
+
+    return ss.str();
+}
+
+void ThrowPythonError(Napi::Env env, const py::error_already_set& e) {
+    PyErrorInfo info = ExtractPythonError(e);
+
+    // Build error message: "ValueError: invalid input"
+    std::string message = info.type + ": " + info.message;
+
+    auto error = Napi::Error::New(env, message);
+    auto obj = error.Value();
+
+    // Attach structured info
+    obj.Set("pythonType", Napi::String::New(env, info.type));
+    obj.Set("pythonMessage", Napi::String::New(env, info.message));
+
+    // Attach traceback as array of frame objects
+    auto frames_arr = Napi::Array::New(env, info.frames.size());
+    for (size_t i = 0; i < info.frames.size(); ++i) {
+        auto frame_obj = Napi::Object::New(env);
+        frame_obj.Set("file", Napi::String::New(env, info.frames[i].filename));
+        frame_obj.Set("line", Napi::Number::New(env, info.frames[i].lineno));
+        frame_obj.Set("function", Napi::String::New(env, info.frames[i].funcname));
+        if (!info.frames[i].line.empty()) {
+            frame_obj.Set("source", Napi::String::New(env, info.frames[i].line));
+        }
+        frames_arr.Set(static_cast<uint32_t>(i), frame_obj);
+    }
+    obj.Set("pythonTraceback", frames_arr);
+
+    // Rewrite the stack property to include Python frames above JS frames
+    try {
+        auto existing_stack = obj.Get("stack").As<Napi::String>().Utf8Value();
+        std::string combined = FormatCombinedStack(info) + "    --- Python/JS boundary ---\n" + existing_stack;
+        obj.Set("stack", Napi::String::New(env, combined));
+    } catch (...) {}
+
+    error.ThrowAsJavaScriptException();
+}
+
 // ─── GIL-safe Python object pointers ─────────────────────────────────────────
 
 // Custom deleter that acquires the GIL before destroying a py::object.
@@ -438,7 +543,7 @@ Napi::Value MakeSyncCaller(Napi::Env env, py::object py_func) {
             py::object result = (*func_ptr)(*args);
             return PyToJs(env, result);
         } catch (const py::error_already_set& e) {
-            Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+            ThrowPythonError(env, e);
             return env.Undefined();
         } catch (const std::exception& e) {
             Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();

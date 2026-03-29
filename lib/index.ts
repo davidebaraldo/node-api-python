@@ -4,6 +4,8 @@ import type { ImportOptions, PythonModule } from './types'
 export type {
   ImportOptions,
   PythonModule,
+  PythonError,
+  PythonTracebackFrame,
   PyInt,
   PyFloat,
   PyStr,

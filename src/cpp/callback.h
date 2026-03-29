@@ -5,10 +5,13 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <memory>
 #include <functional>
 #include <mutex>
 #include <condition_variable>
 #include <thread>
+
+#include "converter.h"
 
 namespace py = pybind11;
 
@@ -46,6 +49,7 @@ private:
     py::object result_;
     Napi::Promise::Deferred deferred_;
     std::string error_msg_;
+    std::unique_ptr<PyErrorInfo> py_error_info_;
 };
 
 // Wraps a Python module as a JS object with sync/async method access.
