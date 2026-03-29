@@ -1,0 +1,79 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    name: Run benchmarks
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Python deps
+        run: pip install pybind11 numpy
+
+      - name: Install Node.js deps
+        run: npm ci
+
+      - name: Build native addon
+        run: npm run build:native
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Run benchmarks
+        run: npm run bench -- --json | tee bench-results.json
+
+      - name: Transform results for github-action-benchmark
+        run: |
+          node -e "
+            const fs = require('fs');
+            const raw = JSON.parse(fs.readFileSync('bench-results.json', 'utf8'));
+            const out = raw.map(r => ({
+              name: r.name,
+              unit: 'ops/sec',
+              value: Math.round(r.opsPerSec * 100) / 100,
+              range: '± ' + ((r.maxUs - r.minUs) / 2).toFixed(0) + ' µs',
+              extra: 'avg ' + r.avgUs.toFixed(2) + ' µs | min ' + r.minUs.toFixed(2) + ' µs | max ' + r.maxUs.toFixed(2) + ' µs'
+            }));
+            fs.writeFileSync('bench-output.json', JSON.stringify(out, null, 2));
+          "
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: customBiggerIsBetter
+          output-file-path: bench-output.json
+          # Publish to GitHub Pages on push to main
+          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: bench
+          # Comment on PRs with comparison
+          comment-on-alert: true
+          comment-always: ${{ github.event_name == 'pull_request' }}
+          alert-threshold: "130%"
+          fail-on-alert: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
