@@ -1,4 +1,8 @@
-# node-api-python
+<p align="center">
+  <img src="docs/logo.svg" alt="node-api-python" width="140">
+</p>
+
+<h1 align="center">node-api-python</h1>
 
 [![CI](https://github.com/davidebaraldo/node-api-python/actions/workflows/ci.yml/badge.svg)](https://github.com/davidebaraldo/node-api-python/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/node-api-python.svg)](https://www.npmjs.com/package/node-api-python)
