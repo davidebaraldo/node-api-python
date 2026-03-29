@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Current version: [v0.8.0](https://www.npmjs.com/package/node-api-python)** — Published on npm. Phases 1-8 complete. Benchmark suite shipped.
+> **Current version: [v0.9.0](https://www.npmjs.com/package/node-api-python)** — Published on npm. Phases 1-9 complete. Cross-language stack traces shipped.
 
 > This is a living document. Priorities may shift based on community feedback.
 > Want to influence the roadmap? [Open a discussion](https://github.com/davidebaraldo/node-api-python/discussions) or [file an issue](https://github.com/davidebaraldo/node-api-python/issues).
@@ -189,20 +189,33 @@ npm run bench -- --json          # machine-readable output
 
 ---
 
-## Phase 9 — Cross-Language Stack Traces `v0.9.0`
+## Phase 9 — Cross-Language Stack Traces `v0.9.0` (Complete)
 
 Unified error reporting: when Python raises, the JS stack trace includes the Python traceback.
 
-- [ ] Capture full Python traceback (file, line, function)
-- [ ] Attach as structured data on the JS `Error` object
-- [ ] Format combined stack: JS frames + Python frames in one trace
-- [ ] Source-map awareness for TypeScript callers
+- [x] Capture full Python traceback (file, line, function, source text)
+- [x] Attach as structured data on the JS `Error` object (`pythonType`, `pythonMessage`, `pythonTraceback`)
+- [x] Format combined stack: Python frames + boundary marker + JS frames
+- [x] Works for both sync and async errors
+- [x] `PythonError` and `PythonTracebackFrame` TypeScript types exported
+
+```js
+try {
+  mod.predictSync(data)
+} catch (err) {
+  err.pythonType       // "ValueError"
+  err.pythonMessage    // "invalid input"
+  err.pythonTraceback  // [{ file: "model.py", line: 42, function: "predict", source: "raise ValueError(...)" }]
+  err.stack            // Combined: Python frames → boundary → JS frames
+}
+```
 
 ```
+ValueError: invalid input
+    at predict (model.py:42) — raise ValueError("invalid input")
+    --- Python/JS boundary ---
 Error: ValueError: invalid input
-    at predict (model.py:42)
-    at Module.predictSync (node-api-python)
-    at handler (server.ts:15)
+    at Object.<anonymous> (server.ts:15:5)
 ```
 
 ---

@@ -166,7 +166,9 @@ void PyCallWorker::Execute() {
 
         result_ = func_(*py_args);
     } catch (const py::error_already_set& e) {
-        error_msg_ = e.what();
+        py::gil_scoped_acquire gil;
+        py_error_info_ = std::make_unique<PyErrorInfo>(ExtractPythonError(e));
+        error_msg_ = py_error_info_->type + ": " + py_error_info_->message;
         SetError(error_msg_);
     } catch (const std::exception& e) {
         error_msg_ = e.what();
@@ -185,6 +187,33 @@ void PyCallWorker::OnOK() {
 }
 
 void PyCallWorker::OnError(const Napi::Error& error) {
+    if (py_error_info_) {
+        // Build rich error with Python traceback
+        auto obj = error.Value();
+        obj.Set("pythonType", Napi::String::New(Env(), py_error_info_->type));
+        obj.Set("pythonMessage", Napi::String::New(Env(), py_error_info_->message));
+
+        auto frames_arr = Napi::Array::New(Env(), py_error_info_->frames.size());
+        for (size_t i = 0; i < py_error_info_->frames.size(); ++i) {
+            auto frame_obj = Napi::Object::New(Env());
+            frame_obj.Set("file", Napi::String::New(Env(), py_error_info_->frames[i].filename));
+            frame_obj.Set("line", Napi::Number::New(Env(), py_error_info_->frames[i].lineno));
+            frame_obj.Set("function", Napi::String::New(Env(), py_error_info_->frames[i].funcname));
+            if (!py_error_info_->frames[i].line.empty()) {
+                frame_obj.Set("source", Napi::String::New(Env(), py_error_info_->frames[i].line));
+            }
+            frames_arr.Set(static_cast<uint32_t>(i), frame_obj);
+        }
+        obj.Set("pythonTraceback", frames_arr);
+
+        // Rewrite stack to include Python frames
+        try {
+            auto existing_stack = obj.Get("stack").As<Napi::String>().Utf8Value();
+            std::string combined = FormatCombinedStack(*py_error_info_) +
+                "    --- Python/JS boundary ---\n" + existing_stack;
+            obj.Set("stack", Napi::String::New(Env(), combined));
+        } catch (...) {}
+    }
     deferred_.Reject(error.Value());
 }
 

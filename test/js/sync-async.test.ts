@@ -246,4 +246,89 @@ describe('sync and async calling', () => {
       expect(elapsed).toBeGreaterThanOrEqual(80)
     })
   })
+
+  describe('cross-language stack traces', () => {
+    it('should include pythonType on sync errors', () => {
+      try {
+        mod.raises_errorSync()
+        expect.unreachable('should have thrown')
+      } catch (err: any) {
+        expect(err.pythonType).toBe('ValueError')
+      }
+    })
+
+    it('should include pythonMessage on sync errors', () => {
+      try {
+        mod.raises_errorSync()
+        expect.unreachable('should have thrown')
+      } catch (err: any) {
+        expect(err.pythonMessage).toBe('test error from Python')
+      }
+    })
+
+    it('should include pythonTraceback array on sync errors', () => {
+      try {
+        mod.raises_errorSync()
+        expect.unreachable('should have thrown')
+      } catch (err: any) {
+        expect(err.pythonTraceback).toBeInstanceOf(Array)
+        expect(err.pythonTraceback.length).toBeGreaterThan(0)
+
+        const frame = err.pythonTraceback[err.pythonTraceback.length - 1]
+        expect(frame.file).toContain('compute.py')
+        expect(frame.function).toBe('raises_error')
+        expect(typeof frame.line).toBe('number')
+      }
+    })
+
+    it('should format error message as "Type: message"', () => {
+      try {
+        mod.raises_errorSync()
+        expect.unreachable('should have thrown')
+      } catch (err: any) {
+        expect(err.message).toBe('ValueError: test error from Python')
+      }
+    })
+
+    it('should include Python frames in stack trace', () => {
+      try {
+        mod.raises_errorSync()
+        expect.unreachable('should have thrown')
+      } catch (err: any) {
+        expect(err.stack).toContain('compute.py')
+        expect(err.stack).toContain('raises_error')
+        expect(err.stack).toContain('Python/JS boundary')
+      }
+    })
+
+    it('should have correct pythonType for TypeError', () => {
+      try {
+        mod.raises_type_errorSync()
+        expect.unreachable('should have thrown')
+      } catch (err: any) {
+        expect(err.pythonType).toBe('TypeError')
+        expect(err.pythonMessage).toBe('wrong type from Python')
+      }
+    })
+
+    it('should have correct pythonType for ZeroDivisionError', () => {
+      try {
+        mod.divisionSync(1, 0)
+        expect.unreachable('should have thrown')
+      } catch (err: any) {
+        expect(err.pythonType).toBe('ZeroDivisionError')
+      }
+    })
+
+    it('should include pythonType on async errors', async () => {
+      try {
+        await mod.raises_error()
+        expect.unreachable('should have rejected')
+      } catch (err: any) {
+        expect(err.pythonType).toBe('ValueError')
+        expect(err.pythonMessage).toBe('test error from Python')
+        expect(err.pythonTraceback).toBeInstanceOf(Array)
+      }
+    })
+  })
 })
