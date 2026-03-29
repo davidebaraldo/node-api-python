@@ -20,6 +20,7 @@ npm install node-api-python
 ## Table of Contents
 
 - [Why?](#why)
+- [Benchmarks](#benchmarks)
 - [Install](#install)
 - [Quick Start](#quick-start)
 - [Project Templates](#project-templates)
@@ -47,6 +48,34 @@ Existing bridges (pythonia, child_process) spawn a separate Python process and c
 | Type generation | Yes | No | No |
 | Callbacks Py→JS | Yes | Limited | No |
 | Zero-copy arrays | Yes | No | No |
+
+---
+
+## Benchmarks
+
+Measured on Ubuntu (CI), Node.js 22, Python 3.13. Full results updated on every commit to `main`.
+
+| Operation | ops/sec | avg latency |
+|---|---|---|
+| **Function call** (noop, sync) | 2.87M | 0.35 &micro;s |
+| **add(1,2)** (sync) | 1.51M | 0.66 &micro;s |
+| **String echo** (short) | 1.25M | 0.80 &micro;s |
+| **String echo** (64KB) | 28.9K | 34.6 &micro;s |
+| **list[100]** from Python | 79.3K | 12.6 &micro;s |
+| **dict[10000]** from Python | 188 | 5.3 ms |
+| **NumPy create** array[10K] | 45.5K | 22.0 &micro;s |
+| **Callback** (single invocation) | 229K | 4.4 &micro;s |
+| **Callback** (1000 invocations) | 1.36K | 734 &micro;s |
+
+> [Interactive charts on GitHub Pages](https://davidebaraldo.github.io/node-api-python/bench/)
+
+Run benchmarks locally:
+
+```bash
+npm run bench                    # table output
+npm run bench -- --filter numpy  # only numpy benchmarks
+npm run bench -- --json          # machine-readable for CI
+```
 
 ---
 
@@ -480,6 +509,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contributor guidelines.
 
 ## Documentation
 
+- [Benchmarks](https://davidebaraldo.github.io/node-api-python/bench/) — interactive performance charts
 - [Roadmap](ROADMAP.md) — project phases and progress
 - [Contributing](CONTRIBUTING.md) — how to contribute
 - [Changelog](CHANGELOG.md) — version history
