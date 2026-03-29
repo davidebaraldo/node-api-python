@@ -292,50 +292,58 @@ npx node-api-python generate-types <file> [-o dir] # Generate .d.ts from type hi
 
 ---
 
-## Setup by Platform
+## Requirements
+
+| Dependency | Version | Notes |
+|---|---|---|
+| **Node.js** | 22, 24, or 25 | |
+| **Python** | 3.10 — 3.14 | Required at runtime |
+| **numpy** | latest | Optional, for zero-copy arrays |
+
+Prebuilt binaries are included for **Windows x64**, **macOS arm64**, and **Linux x64**.
+If a prebuild is available for your platform, `npm install` just works — no compiler or CMake needed.
+
+```bash
+npx node-api-python doctor   # verify your environment
+```
+
+---
+
+## Building from Source
+
+If no prebuild is available for your platform (or you want to compile yourself), you also need:
+
+| Dependency | Version | Notes |
+|---|---|---|
+| **CMake** | 3.15+ | |
+| **C++ compiler** | C++17 | MSVC on Windows, GCC or Clang on Unix |
+| **pybind11** | latest | `pip install pybind11` |
+
+Python **dev headers** are required when building from source (`python3-dev` on Debian/Ubuntu, `python3-devel` on Fedora/RHEL). On Windows and macOS they are included with standard Python installers.
 
 ### Windows
 
 ```powershell
-# Install Python (if not already installed)
 winget install Python.Python.3.13
-
-# Install build dependencies
-pip install pybind11 numpy
 winget install Kitware.CMake
-
-# Verify everything
-npx node-api-python doctor
+pip install pybind11 numpy
 ```
 
-> **Note:** If building from source, run from a **Developer Command Prompt** or **Developer PowerShell** (for MSVC access).
+> **Note:** Build from a **Developer Command Prompt** or **Developer PowerShell** (for MSVC access).
 
 ### macOS
 
 ```bash
-# Install Python (if not already installed)
-brew install python@3.13
-
-# Install build dependencies
+brew install python@3.13 cmake
 pip3 install pybind11 numpy
-brew install cmake
-
-# Verify everything
-npx node-api-python doctor
 ```
 
 ### Linux (Ubuntu/Debian)
 
 ```bash
-# Install Python with dev headers
 sudo apt update
 sudo apt install python3 python3-dev python3-pip cmake build-essential
-
-# Install Python packages
 pip3 install pybind11 numpy
-
-# Verify everything
-npx node-api-python doctor
 ```
 
 ### Linux (Fedora/RHEL)
@@ -343,7 +351,6 @@ npx node-api-python doctor
 ```bash
 sudo dnf install python3 python3-devel python3-pip cmake gcc-c++
 pip3 install pybind11 numpy
-npx node-api-python doctor
 ```
 
 ---
@@ -358,12 +365,10 @@ python3 -m venv .venv
 source .venv/bin/activate      # Linux/macOS
 # .venv\Scripts\activate       # Windows
 pip install pybind11 numpy
-npm run build                   # uses the venv Python
 
 # Conda
 conda activate myenv
 pip install pybind11 numpy
-npm run build                   # uses the conda Python
 ```
 
 To use a specific Python installation, set:
@@ -371,19 +376,6 @@ To use a specific Python installation, set:
 ```bash
 export NODE_API_PYTHON_PATH=/path/to/python3
 ```
-
----
-
-## Requirements
-
-| Dependency | Version | Notes |
-|---|---|---|
-| **Node.js** | 22, 24, or 25 | |
-| **Python** | 3.10 — 3.14 | With dev headers |
-| **CMake** | 3.15+ | Only if building from source |
-| **C++ compiler** | C++17 | Only if building from source |
-| **pybind11** | latest | `pip install pybind11` |
-| **numpy** | latest | Optional, for zero-copy arrays |
 
 ---
 
