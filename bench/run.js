@@ -224,6 +224,8 @@ function main() {
 
 try {
   main()
+  // Force exit — embedded Python interpreter keeps the event loop alive
+  process.exit(0)
 } catch (err) {
   console.error(err)
   process.exit(1)
