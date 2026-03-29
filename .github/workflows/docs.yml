@@ -21,22 +21,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Fetch gh-pages
           git fetch origin gh-pages:gh-pages
-
-          # Switch to gh-pages
           git checkout gh-pages
 
-          # Copy docs (but preserve bench/ data)
-          cp ../docs/index.html . 2>/dev/null || true
-
-          # Use worktree approach: copy from main's docs/
-          git checkout main -- docs/index.html
-          mv docs/index.html index.html
+          # Copy all docs files from main (preserve bench/ data)
+          git checkout main -- docs/
+          cp -r docs/* .
           rm -rf docs/
 
-          # Commit and push if changed
-          git add index.html
+          git add -A
           if git diff --cached --quiet; then
             echo "No docs changes"
           else
