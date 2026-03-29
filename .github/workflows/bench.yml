@@ -72,6 +72,7 @@ jobs:
           auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: bench
+          skip-fetch-gh-pages: true
           # Comment on PRs with comparison
           comment-on-alert: true
           comment-always: ${{ github.event_name == 'pull_request' }}
