@@ -45,7 +45,7 @@ jobs:
         run: npm run build:ts
 
       - name: Run benchmarks
-        run: npm run bench -- --json | tee bench-results.json
+        run: node bench/run.js --json | tee bench-results.json
 
       - name: Transform results for github-action-benchmark
         run: |
