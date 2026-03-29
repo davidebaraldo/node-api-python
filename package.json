@@ -1,14 +1,21 @@
 {
   "name": "node-api-python",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "High-performance Node.js ↔ Python bridge via embedded CPython",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "node-api-python": "./scripts/cli.js"
   },
-  "os": ["darwin", "linux", "win32"],
-  "cpu": ["x64", "arm64"],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "files": [
     "dist/",
     "prebuilds/",
@@ -28,6 +35,7 @@
     "rebuild": "cmake-js rebuild",
     "test": "npm run test:js && npm run test:python",
     "test:js": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:python": "pytest test/python/",
     "lint": "tsc --noEmit && ruff check src/python/",
     "lint:fix": "ruff check src/python/ --fix",
@@ -72,6 +80,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.19.15",
+    "@vitest/coverage-v8": "^4.1.2",
     "cmake-js": "^7.3.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"

@@ -100,6 +100,8 @@ jobs:
         run: npx vitest run test/js/callback.test.ts
       - name: Test integration
         run: npx vitest run test/js/integration.test.ts
+      - name: Test edge cases
+        run: npx vitest run test/js/edge-cases.test.ts
 
   test-typegen-cli:
     needs: [lint]
