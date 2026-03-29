@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   update-changelog:
@@ -30,15 +31,26 @@ jobs:
             --jq 'sort_by(.created_at) | reverse | .[] | select(.draft == false) | "## [\(.tag_name)] - \(.published_at | split("T")[0])\n\n\(.body)\n"' \
             >> CHANGELOG.md
 
-      - name: Commit CHANGELOG.md
+      - name: Create PR for CHANGELOG update
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="chore/changelog-${{ github.event.release.tag_name }}"
+          git checkout -b "$BRANCH"
           git add CHANGELOG.md
-          # Only commit if there are changes
+
           if git diff --cached --quiet; then
             echo "No changes to CHANGELOG.md"
-          else
-            git commit -m "docs: update CHANGELOG.md for ${{ github.event.release.tag_name }}"
-            git push
+            exit 0
           fi
+
+          git commit -m "docs: update CHANGELOG.md for ${{ github.event.release.tag_name }}"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "docs: update CHANGELOG.md for ${{ github.event.release.tag_name }}" \
+            --body "Auto-generated changelog update from release ${{ github.event.release.tag_name }}." \
+            --base main \
+            --head "$BRANCH"
